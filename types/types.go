@@ -1,4 +1,4 @@
-package engine
+package types
 
 // Request
 type Request struct {
@@ -8,10 +8,14 @@ type Request struct {
 
 // ParseResult
 type ParseResult struct {
-	Requests []Request
-	Items    []interface{}
+	Items []interface{}
 }
 
 func NilParser(contents []byte) ParseResult {
 	return ParseResult{}
+}
+
+type Airport struct {
+	DepCode string
+	ArrCode string
 }

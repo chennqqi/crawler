@@ -3,7 +3,7 @@ package parser
 import (
 	"regexp"
 
-	"github.com/champkeh/crawler/engine"
+	"github.com/champkeh/crawler/types"
 )
 
 //http://www.umetrip.com/mskyweb/fs/fa.do?dep=SHA&arr=PEK&date=2018-09-09
@@ -25,11 +25,11 @@ type FlightListData struct {
 }
 
 // ParseList parse flight list data
-func ParseList(contents []byte) engine.ParseResult {
+func ParseList(contents []byte) types.ParseResult {
 	re := regexp.MustCompile(listRe)
 	matches := re.FindAllSubmatch(contents, -1)
 
-	result := engine.ParseResult{}
+	result := types.ParseResult{}
 	for _, m := range matches {
 		result.Items = append(result.Items, FlightListData{
 			FlightNo:      string(m[1]),
