@@ -7,38 +7,17 @@ import (
 
 	"fmt"
 
-	"os"
-
-	"errors"
-
+	"github.com/champkeh/crawler/config"
 	"github.com/champkeh/crawler/types"
 	"github.com/champkeh/crawler/umetrip/parser"
 	_ "github.com/denisenkom/go-mssqldb"
 )
 
-var (
-	sqluser  string
-	sqlpass  string
-	sqladdr  string
-	database string
-)
-
-func init() {
-	sqluser = os.Getenv("sqluser")
-	sqlpass = os.Getenv("sqlpass")
-	sqladdr = os.Getenv("sqladdr")
-	database = os.Getenv("database")
-
-	if sqluser == "" || sqlpass == "" || sqladdr == "" || database == "" {
-		panic(errors.New("未设置数据库连接环境变量"))
-	}
-}
-
-func PullAirportList() (chan types.Airport, error) {
+func PullAirportList() (<-chan types.Airport, error) {
 
 	// connect sql
 	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=10",
-		sqluser, sqlpass, sqladdr, database)
+		config.SqlUser, config.SqlPass, config.SqlAddr, config.Database)
 
 	conn, err := sql.Open("mssql", connstr)
 	if err != nil {
@@ -75,14 +54,19 @@ func PullAirportList() (chan types.Airport, error) {
 	return ch, nil
 }
 
-func AirportRequestFilter(airports chan types.Airport) chan types.Request {
+func AirportRequestFilter(airports <-chan types.Airport) chan types.Request {
 	requests := make(chan types.Request)
 	go func() {
 		for airport := range airports {
 			// TODO: date 暂时写死
-			url := fmt.Sprintf("http://www.umetrip.com/mskyweb/fs/fa.do?dep=%s&arr=%s&date=2018-09-09",
-				airport.DepCode, airport.ArrCode)
+			date := "2018-09-09"
+			url := fmt.Sprintf("http://www.umetrip.com/mskyweb/fs/fa.do?dep=%s&arr=%s&date=%s",
+				airport.DepCode, airport.ArrCode, date)
+
 			requests <- types.Request{
+				Dep:        airport.DepCode,
+				Arr:        airport.ArrCode,
+				Date:       date,
 				Url:        url,
 				ParserFunc: parser.ParseList,
 			}

@@ -5,15 +5,15 @@ import (
 )
 
 type SimpleScheduler struct {
-	workerChan chan types.Request
+	requestChan chan types.Request
 }
 
-func (s *SimpleScheduler) ConfigureMasterWorkerChan(ch chan types.Request) {
-	s.workerChan = ch
+func (s *SimpleScheduler) ConfigureRequestChan(channel chan types.Request) {
+	s.requestChan = channel
 }
 
-func (s *SimpleScheduler) Submit(r types.Request) {
+func (s *SimpleScheduler) Submit(request types.Request) {
 	go func() {
-		s.workerChan <- r
+		s.requestChan <- request
 	}()
 }

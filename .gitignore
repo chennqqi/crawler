@@ -13,3 +13,6 @@
 
 # ide config
 .idea/
+
+# config
+config/
