@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// default 30 is perfect
 var rateLimiter = time.Tick(30 * time.Millisecond)
 
 func Fetch(url string) ([]byte, error) {

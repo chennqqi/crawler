@@ -12,8 +12,8 @@ func (s *SimpleScheduler) ConfigureRequestChan(channel chan types.Request) {
 	s.requestChan = channel
 }
 
-func (s *SimpleScheduler) Submit(request types.Request) {
+func (s *SimpleScheduler) Submit(req types.Request) {
 	go func() {
-		s.requestChan <- request
+		s.requestChan <- req
 	}()
 }
