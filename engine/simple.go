@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/champkeh/crawler/fetcher"
+	"github.com/champkeh/crawler/notifer"
 	"github.com/champkeh/crawler/persist"
 	"github.com/champkeh/crawler/scheduler"
 	"github.com/champkeh/crawler/seeds"
@@ -11,24 +12,16 @@ import (
 )
 
 type SimpleEngine struct {
-	Scheduler   Scheduler
-	Saver       Saver
+	Scheduler   types.Scheduler
+	Saver       types.Saver
+	Notifier    types.Notifier
 	WorkerCount int
-}
-
-type Scheduler interface {
-	Submit(types.Request)
-	ConfigureRequestChan(chan types.Request)
-}
-
-type Saver interface {
-	Submit(types.ParseResult)
-	ConfigureParseResultChan(chan types.ParseResult)
 }
 
 var DefaultEngine = SimpleEngine{
 	Scheduler:   &scheduler.SimpleScheduler{},
 	Saver:       &persist.Saver{},
+	Notifier:    &notifer.ConsoleNotifier{},
 	WorkerCount: 100,
 }
 
@@ -44,6 +37,11 @@ func (e SimpleEngine) Run() {
 	reqChannel := seeds.AirportRequestFilter(airports)
 	e.Scheduler.ConfigureRequestChan(reqChannel)
 
+	// configure notify channel
+	notifyOut := make(chan types.NotifyData, 100)
+	e.Notifier.ConfigureChan(notifyOut)
+	go e.Notifier.Run()
+
 	// out channel
 	out := make(chan types.ParseResult)
 
@@ -54,7 +52,7 @@ func (e SimpleEngine) Run() {
 
 	for {
 		result := <-out
-		err := persist.Save(result)
+		err := persist.Save(result, e.Notifier)
 		if err != nil {
 			log.Printf("\nsave error: %v\n", err)
 			continue

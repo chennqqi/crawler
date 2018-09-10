@@ -3,8 +3,6 @@ package persist
 import (
 	"database/sql"
 
-	"fmt"
-
 	"time"
 
 	"github.com/champkeh/crawler/types"
@@ -43,7 +41,7 @@ func init() {
 var airportIndex = 0
 var flightSum = 0
 
-func Save(result types.ParseResult) error {
+func Save(result types.ParseResult, notifer types.Notifier) error {
 	var itemCount = 0
 	for _, item := range result.Items {
 		_ = item.(parser.FlightListData)
@@ -62,8 +60,16 @@ func Save(result types.ParseResult) error {
 		flightSum++
 	}
 	airportIndex++
-	fmt.Printf("\r%v Airport #%d (%s->%s): items %d; total: %d/%.2f%%", time.Since(types.T1),
-		airportIndex, result.Dep, result.Arr, itemCount, flightSum,
-		float32(100*float64(airportIndex)/49948))
+
+	data := types.NotifyData{
+		Elapsed:      time.Since(types.T1),
+		Airport:      types.Airport{DepCode: result.Dep, ArrCode: result.Arr},
+		AirportIndex: airportIndex,
+		FlightCount:  itemCount,
+		FlightSum:    flightSum,
+		Progress:     float32(100 * float64(airportIndex) / 49948),
+	}
+
+	notifer.Notify(data)
 	return nil
 }

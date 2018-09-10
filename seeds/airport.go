@@ -65,9 +65,11 @@ func AirportRequestFilter(airports chan types.Airport) chan types.Request {
 				airport.DepCode, airport.ArrCode, date)
 
 			requests <- types.Request{
-				Dep:        airport.DepCode,
-				Arr:        airport.ArrCode,
-				Date:       date,
+				Param: types.Param{
+					Dep:  airport.DepCode,
+					Arr:  airport.ArrCode,
+					Date: date,
+				},
 				Url:        url,
 				ParserFunc: parser.ParseList,
 			}

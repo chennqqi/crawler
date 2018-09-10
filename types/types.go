@@ -1,21 +1,42 @@
 package types
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
+
+type Scheduler interface {
+	Submit(Request)
+	ConfigureRequestChan(chan Request)
+}
+
+type Saver interface {
+	Submit(ParseResult)
+	ConfigureParseResultChan(chan ParseResult)
+}
+
+type Notifier interface {
+	Notify(data NotifyData)
+	ConfigureChan(chan NotifyData)
+	Run()
+}
+
+type Param struct {
+	Dep  string
+	Arr  string
+	Date string
+}
 
 // Request
 type Request struct {
-	Dep        string
-	Arr        string
-	Date       string
+	Param
 	Url        string
 	ParserFunc func([]byte) ParseResult
 }
 
 // ParseResult
 type ParseResult struct {
-	Dep   string
-	Arr   string
-	Date  string
+	Param
 	Items []interface{}
 }
 
@@ -23,6 +44,7 @@ func NilParser(contents []byte) ParseResult {
 	return ParseResult{}
 }
 
+// Airport come from database seed
 type Airport struct {
 	DepCode string
 	ArrCode string
@@ -33,5 +55,22 @@ func init() {
 }
 
 var (
+	// T1 is for runtime statistics
 	T1 time.Time
 )
+
+// Output represent output statistics
+type NotifyData struct {
+	Elapsed      time.Duration
+	Airport      Airport
+	AirportIndex int
+	FlightCount  int
+	FlightSum    int
+	Progress     float32
+}
+
+func (o NotifyData) String() string {
+	return fmt.Sprintf("%v Airport #%d (%s->%s): items %d; total: %d/%.2f%%",
+		o.Elapsed, o.AirportIndex, o.Airport.DepCode, o.Airport.ArrCode,
+		o.FlightCount, o.FlightSum, o.Progress)
+}

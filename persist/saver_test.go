@@ -9,9 +9,11 @@ import (
 
 func TestSave(t *testing.T) {
 	var result = types.ParseResult{
-		Dep:  "PEK",
-		Arr:  "SHA",
-		Date: "2018-09-10",
+		Param: types.Param{
+			Dep:  "PEK",
+			Arr:  "SHA",
+			Date: "2018-09-10",
+		},
 		Items: []interface{}{
 			parser.FlightListData{
 				FlightNo:      "HO1252",
@@ -36,7 +38,7 @@ func TestSave(t *testing.T) {
 		},
 	}
 
-	err := Save(result)
+	err := Save(result, nil)
 	if err != nil {
 		t.Errorf("save error: %v", err)
 	}
