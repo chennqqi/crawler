@@ -1,5 +1,7 @@
 package types
 
+import "time"
+
 // Request
 type Request struct {
 	Dep        string
@@ -25,3 +27,11 @@ type Airport struct {
 	DepCode string
 	ArrCode string
 }
+
+func init() {
+	T1 = time.Now()
+}
+
+var (
+	T1 time.Time
+)

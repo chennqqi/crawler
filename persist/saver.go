@@ -5,6 +5,8 @@ import (
 
 	"fmt"
 
+	"time"
+
 	"github.com/champkeh/crawler/types"
 	"github.com/champkeh/crawler/umetrip/parser"
 	_ "github.com/denisenkom/go-mssqldb"
@@ -38,7 +40,8 @@ func init() {
 	}
 }
 
-var airportCount = 0
+var airportIndex = 0
+var flightSum = 0
 
 func Save(result types.ParseResult) error {
 	var itemCount = 0
@@ -56,9 +59,11 @@ func Save(result types.ParseResult) error {
 
 		//fmt.Printf("Save item #%d: %v\n", itemCount, item)
 		itemCount++
+		flightSum++
 	}
-	airportCount++
-	fmt.Printf("Airport #%d (%s->%s): items %d\n", airportCount, result.Dep,
-		result.Arr, itemCount)
+	airportIndex++
+	fmt.Printf("\r%v Airport #%d (%s->%s): items %d; total: %d/%.2f%%", time.Since(types.T1),
+		airportIndex, result.Dep, result.Arr, itemCount, flightSum,
+		float32(100*float64(airportIndex)/49948))
 	return nil
 }
