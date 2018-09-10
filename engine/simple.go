@@ -21,7 +21,7 @@ type SimpleEngine struct {
 var DefaultEngine = SimpleEngine{
 	Scheduler:   &scheduler.SimpleScheduler{},
 	Saver:       &persist.Saver{},
-	Notifier:    &notifer.ConsoleNotifier{},
+	Notifier:    &notifer.HttpNotifier{},
 	WorkerCount: 100,
 }
 
