@@ -13,6 +13,9 @@ const listRe = `(?sU)temp\.push.*title='(.*)'.*title='(.*)'.*<span class='w125'>
 .*"(.*)</span> <span class='w125'>(.*)</span>.*
 .*"(.*)</span>`
 
+// place this compile step outside the function to speed reason
+var listReCompile = regexp.MustCompile(listRe)
+
 type FlightListData struct {
 	FlightNo      string
 	FlightCompany string
@@ -26,8 +29,7 @@ type FlightListData struct {
 
 // ParseList parse flight list data
 func ParseList(contents []byte) types.ParseResult {
-	re := regexp.MustCompile(listRe)
-	matches := re.FindAllSubmatch(contents, -1)
+	matches := listReCompile.FindAllSubmatch(contents, -1)
 
 	result := types.ParseResult{}
 	for _, m := range matches {

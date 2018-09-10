@@ -13,7 +13,8 @@ import (
 	_ "github.com/denisenkom/go-mssqldb"
 )
 
-func PullAirportList() (<-chan types.Airport, error) {
+// PullAirportList pull all airport data e.g. (PEK SHA),(SHA LYA) etc from database
+func PullAirportList() (chan types.Airport, error) {
 
 	// connect sql
 	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=10",
@@ -54,7 +55,7 @@ func PullAirportList() (<-chan types.Airport, error) {
 	return ch, nil
 }
 
-func AirportRequestFilter(airports <-chan types.Airport) chan types.Request {
+func AirportRequestFilter(airports chan types.Airport) chan types.Request {
 	requests := make(chan types.Request)
 	go func() {
 		for airport := range airports {

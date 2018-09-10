@@ -15,7 +15,7 @@ func TestPullAirportList(t *testing.T) {
 		//fmt.Printf("airport: %s -> %s\n", airport.DepCode, airport.ArrCode)
 		count++
 	}
-	expected := 49502
+	expected := 49948
 	if count != expected {
 		t.Errorf("airport count %d; expected %d", count, expected)
 	}

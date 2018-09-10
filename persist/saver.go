@@ -38,9 +38,10 @@ func init() {
 	}
 }
 
-var itemCount = 0
+var airportCount = 0
 
 func Save(result types.ParseResult) error {
+	var itemCount = 0
 	for _, item := range result.Items {
 		_ = item.(parser.FlightListData)
 		//_, err := conn.Exec("insert into [dbo].[Airline_20180907]" +
@@ -53,8 +54,11 @@ func Save(result types.ParseResult) error {
 		//	return err
 		//}
 
-		fmt.Printf("Save item #%d: %v\n", itemCount, item)
+		//fmt.Printf("Save item #%d: %v\n", itemCount, item)
 		itemCount++
 	}
+	airportCount++
+	fmt.Printf("Airport #%d (%s->%s): items %d\n", airportCount, result.Dep,
+		result.Arr, itemCount)
 	return nil
 }

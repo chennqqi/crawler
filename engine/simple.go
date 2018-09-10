@@ -3,8 +3,6 @@ package engine
 import (
 	"log"
 
-	"fmt"
-
 	"github.com/champkeh/crawler/fetcher"
 	"github.com/champkeh/crawler/persist"
 	"github.com/champkeh/crawler/scheduler"
@@ -58,7 +56,7 @@ func (e SimpleEngine) Run() {
 		result := <-out
 		err := persist.Save(result)
 		if err != nil {
-			fmt.Errorf("save error: %v", err)
+			log.Printf("save error: %v", err)
 			continue
 		}
 	}

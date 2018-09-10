@@ -2,8 +2,9 @@ package parser
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
+
+	"regexp"
 
 	"github.com/champkeh/crawler/types"
 )
@@ -13,9 +14,11 @@ const detailRe = `(?sU)<div class="reg">(.*)</div>.*alt="航空公司" />.*<b>(.
 type FlightDetailData struct {
 }
 
+// place this compile step outside the function to speed reason
+var detailReCompile = regexp.MustCompile(detailRe)
+
 func ParseDetail(contents []byte) types.ParseResult {
-	re := regexp.MustCompile(detailRe)
-	sm := re.FindAllStringSubmatch(string(contents), 2)
+	sm := detailReCompile.FindAllStringSubmatch(string(contents), 2)
 
 	result := types.ParseResult{}
 	for _, m := range sm {
