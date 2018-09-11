@@ -1,9 +1,11 @@
-package notifer
+package notifier
 
 import (
 	"net/http"
 
 	"log"
+
+	"io/ioutil"
 
 	"github.com/champkeh/crawler/types"
 	"github.com/gorilla/websocket"
@@ -26,37 +28,23 @@ func (o *HttpPrintNotifier) Print(data types.NotifyData) {
 var upgrader = websocket.Upgrader{}
 
 func (o *HttpPrintNotifier) Run() {
+
 	// start a web socket server
 	http.HandleFunc("/", index)
 	http.HandleFunc("/progress", o.Progress)
+	http.Handle("/static/", http.StripPrefix("/static/",
+		http.FileServer(http.Dir("./notifier/assets/"))))
+
 	log.Println("Start http server at localhost:8000...")
 	http.ListenAndServe(":8000", nil)
 }
 
-var html = `<!doctype html>
-<html>
-<head>
-<title>Crawler Monitor</title>
-</head>
-<body>
-<h1>Crawler Monitor</h1>
-<script>
-	ws = new WebSocket("ws://localhost:8000/progress");
-	ws.onopen = function(evt) {
-		console.info("connected");
-	};
-	ws.onmessage = function(evt) {
-		console.log(evt.data);
-	};
-	ws.onerror = function(evt) {
-		console.error(evt);
-	};
-</script>
-</body>
-</html>`
-
 func index(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte(html))
+	content, err := ioutil.ReadFile("./notifier/assets/index.html")
+	if err != nil {
+		panic(err)
+	}
+	w.Write(content)
 }
 
 func (o *HttpPrintNotifier) Progress(w http.ResponseWriter, r *http.Request) {

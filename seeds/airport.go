@@ -41,6 +41,7 @@ func PullAirportList() (chan types.Airport, error) {
 		}
 		defer rows.Close()
 
+		count := 0
 		var airport types.Airport
 		for rows.Next() {
 			err := rows.Scan(&airport.DepCode, &airport.ArrCode)
@@ -48,6 +49,11 @@ func PullAirportList() (chan types.Airport, error) {
 				log.Fatal(err)
 			}
 			ch <- airport
+			count++
+
+			if count > 1000 {
+				break
+			}
 		}
 		close(ch)
 	}()

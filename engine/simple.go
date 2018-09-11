@@ -4,7 +4,7 @@ import (
 	"log"
 
 	"github.com/champkeh/crawler/fetcher"
-	"github.com/champkeh/crawler/notifer"
+	"github.com/champkeh/crawler/notifier"
 	"github.com/champkeh/crawler/persist"
 	"github.com/champkeh/crawler/ratelimiter"
 	"github.com/champkeh/crawler/scheduler"
@@ -23,7 +23,7 @@ type SimpleEngine struct {
 var DefaultEngine = SimpleEngine{
 	Scheduler:     &scheduler.SimpleScheduler{},
 	Saver:         &persist.Saver{},
-	PrintNotifier: &notifer.ConsolePrintNotifier{},
+	PrintNotifier: &notifier.HttpPrintNotifier{},
 	RateLimiter:   ratelimiter.NewSimpleRateLimiter(50),
 	WorkerCount:   100,
 }
@@ -61,15 +61,15 @@ func (e SimpleEngine) Run() {
 
 		// this is only print to console/http client,
 		// not save to database.
-		//persist.Print(result, e.PrintNotifier)
+		persist.Print(result, e.PrintNotifier)
 
 		// this is save to database
-		go func() {
-			data, err := persist.Save(result)
-			if err != nil {
-				log.Printf("\nsave %v error: %v\n", data, err)
-			}
-		}()
+		//go func() {
+		//	data, err := persist.Save(result)
+		//	if err != nil {
+		//		log.Printf("\nsave %v error: %v\n", data, err)
+		//	}
+		//}()
 	}
 }
 
