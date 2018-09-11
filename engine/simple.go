@@ -28,8 +28,10 @@ var DefaultEngine = SimpleEngine{
 	WorkerCount:   100,
 }
 
-// Run startup the engine
-func (e SimpleEngine) Run() {
+// Setup is the first step to startup the engine.
+// this is used to fetch the first batch flight list data
+// only once every day, and save to database
+func (e SimpleEngine) Setup() {
 	// generate airport seed
 	airports, err := seeds.PullAirportList()
 	if err != nil {
@@ -61,6 +63,9 @@ func (e SimpleEngine) Run() {
 	for {
 		// when all result have been handled, this will blocked forever.
 		// so, here should use `select` to avoid this problem.
+		// and, when all result have been saved/printed, this goroutine
+		// will exit and run again after 24 hour(e.g. tomorrow)
+		// need close scheduler's in-channel to clean the worker goroutines.
 		result := <-out
 
 		// this is only print to console/http client,
@@ -75,6 +80,12 @@ func (e SimpleEngine) Run() {
 		//	}
 		//}()
 	}
+}
+
+// Run is used to fetch the flight data which duration the next 2 hours,
+// and execute every 10 minutes.
+func (e SimpleEngine) Run() {
+
 }
 
 func (e SimpleEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
