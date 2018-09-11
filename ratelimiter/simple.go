@@ -48,7 +48,18 @@ func (r *simpleRateLimiter) Faster() {
 	if r.Rate <= r.Fastest {
 		return
 	}
-	r.Rate--
+	if r.Rate >= 1500 {
+		r.Rate -= 200
+	} else if r.Rate >= 1000 {
+		r.Rate -= 100
+	} else if r.Rate >= 500 {
+		r.Rate -= 50
+	} else if r.Rate >= 100 {
+		r.Rate -= 10
+	} else {
+		r.Rate -= 5
+	}
+
 	r.RateTick = time.Tick(time.Duration(r.Rate) * time.Millisecond)
 }
 
@@ -61,7 +72,7 @@ func (r *simpleRateLimiter) Slower() {
 	if r.Rate >= r.Slowest {
 		return
 	}
-	r.Rate += 10
+	r.Rate += 5
 	r.RateTick = time.Tick(time.Duration(r.Rate) * time.Millisecond)
 }
 

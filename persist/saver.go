@@ -5,6 +5,10 @@ import (
 
 	"time"
 
+	"fmt"
+
+	"strings"
+
 	"github.com/champkeh/crawler/types"
 	"github.com/champkeh/crawler/umetrip/parser"
 	_ "github.com/denisenkom/go-mssqldb"
@@ -41,21 +45,11 @@ func init() {
 var airportIndex = 0
 var flightSum = 0
 
-func Save(result types.ParseResult, notifer types.PrintNotifier) error {
+func Print(result types.ParseResult, notifier types.PrintNotifier) {
 	var itemCount = 0
 	for _, item := range result.Items {
 		_ = item.(parser.FlightListData)
-		//_, err := conn.Exec("insert into [dbo].[Airline_20180907]" +
-		//	"(dep,arr,date,flightNo,flightName,flightState,depPlanTime,arrPlanTime," +
-		//	"depActualTime,arrActualTime,depPort,arrPort)" +
-		//	" values ('" + result.Dep + "', '" + result.Arr + "', '" + result.Date + "', '" + data.FlightNo + "', '" + data.FlightCompany + "'," +
-		//	" '" + data.State + "','" + data.DepTimePlan + "', '" + data.ArrTimePlan + "', '" + data.DepTimeActual + "'," +
-		//	" '" + data.ArrTimeActual + "', '" + data.Airport + "', '" + data.Airport + "')")
-		//if err != nil {
-		//	return err
-		//}
 
-		//fmt.Printf("Save item #%d: %v\n", itemCount, item)
 		itemCount++
 		flightSum++
 	}
@@ -70,6 +64,24 @@ func Save(result types.ParseResult, notifer types.PrintNotifier) error {
 		Progress:     float32(100 * float64(airportIndex) / 49948),
 	}
 
-	notifer.Print(data)
-	return nil
+	notifier.Print(data)
+}
+
+func Save(result types.ParseResult) (parser.FlightListData, error) {
+	for _, item := range result.Items {
+		data := item.(parser.FlightListData)
+		split := strings.Split(data.Airport, "/")
+		_, err := conn.Exec("insert into [dbo].[Airline_20180907]" +
+			"(dep,arr,date,flightNo,flightName,flightState,depPlanTime,arrPlanTime," +
+			"depActualTime,arrActualTime,depPort,arrPort)" +
+			" values ('" + result.Dep + "', '" + result.Arr + "', '" + result.Date + "', '" + data.FlightNo + "', '" + data.FlightCompany + "'," +
+			" '" + data.State + "','" + data.DepTimePlan + "', '" + data.ArrTimePlan + "', '" + data.DepTimeActual + "'," +
+			" '" + data.ArrTimeActual + "', '" + split[0] + "', '" + split[1] + "')")
+		if err != nil {
+			return data, err
+		}
+	}
+	airportIndex++
+	fmt.Printf("\rSave airport #%d", airportIndex)
+	return parser.FlightListData{}, nil
 }

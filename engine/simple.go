@@ -30,7 +30,7 @@ var DefaultEngine = SimpleEngine{
 
 // Run startup the engine
 func (e SimpleEngine) Run() {
-	// generate seed
+	// generate airport seed
 	airports, err := seeds.PullAirportList()
 	if err != nil {
 		panic(err)
@@ -40,11 +40,6 @@ func (e SimpleEngine) Run() {
 	reqChannel := seeds.AirportRequestFilter(airports)
 	e.Scheduler.ConfigureRequestChan(reqChannel)
 
-	// configure print notify channel
-	printChan := make(chan types.NotifyData, 100)
-	e.PrintNotifier.ConfigureChan(printChan)
-	go e.PrintNotifier.Run()
-
 	// configure scheduler's out channel
 	out := make(chan types.ParseResult)
 
@@ -53,16 +48,28 @@ func (e SimpleEngine) Run() {
 		e.CreateFetchWorker(reqChannel, out)
 	}
 
-	// run rate limter
+	// configure print notify channel
+	printChan := make(chan types.NotifyData, 100)
+	e.PrintNotifier.ConfigureChan(printChan)
+	go e.PrintNotifier.Run()
+
+	// run the rate limiter
 	go e.RateLimiter.Run()
 
 	for {
 		result := <-out
-		err := persist.Save(result, e.PrintNotifier)
-		if err != nil {
-			log.Printf("\nsave error: %v\n", err)
-			continue
-		}
+
+		// this is only print to console/http client,
+		// not save to database.
+		//persist.Print(result, e.PrintNotifier)
+
+		// this is save to database
+		go func() {
+			data, err := persist.Save(result)
+			if err != nil {
+				log.Printf("\nsave %v error: %v\n", data, err)
+			}
+		}()
 	}
 }
 
