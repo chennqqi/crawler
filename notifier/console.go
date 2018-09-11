@@ -1,4 +1,4 @@
-package notifer
+package notifier
 
 import (
 	"fmt"
