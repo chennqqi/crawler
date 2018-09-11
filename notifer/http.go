@@ -9,23 +9,23 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type HttpNotifier struct {
-	outputChan chan types.NotifyData
+type HttpPrintNotifier struct {
+	printChan chan types.NotifyData
 }
 
-func (o *HttpNotifier) ConfigureChan(ch chan types.NotifyData) {
-	o.outputChan = ch
+func (o *HttpPrintNotifier) ConfigureChan(channel chan types.NotifyData) {
+	o.printChan = channel
 }
 
-func (o *HttpNotifier) Notify(out types.NotifyData) {
+func (o *HttpPrintNotifier) Print(data types.NotifyData) {
 	go func() {
-		o.outputChan <- out
+		o.printChan <- data
 	}()
 }
 
 var upgrader = websocket.Upgrader{}
 
-func (o *HttpNotifier) Run() {
+func (o *HttpPrintNotifier) Run() {
 	// start a web socket server
 	http.HandleFunc("/", index)
 	http.HandleFunc("/progress", o.Progress)
@@ -59,12 +59,12 @@ func index(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(html))
 }
 
-func (o *HttpNotifier) Progress(w http.ResponseWriter, r *http.Request) {
+func (o *HttpPrintNotifier) Progress(w http.ResponseWriter, r *http.Request) {
 	conn, _ := upgrader.Upgrade(w, r, nil)
 	defer conn.Close()
 
 	for {
-		notify := <-o.outputChan
+		notify := <-o.printChan
 		// send to client
 		conn.WriteJSON(notify)
 	}

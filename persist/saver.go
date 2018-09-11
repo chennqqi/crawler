@@ -41,7 +41,7 @@ func init() {
 var airportIndex = 0
 var flightSum = 0
 
-func Save(result types.ParseResult, notifer types.Notifier) error {
+func Save(result types.ParseResult, notifer types.PrintNotifier) error {
 	var itemCount = 0
 	for _, item := range result.Items {
 		_ = item.(parser.FlightListData)
@@ -70,6 +70,6 @@ func Save(result types.ParseResult, notifer types.Notifier) error {
 		Progress:     float32(100 * float64(airportIndex) / 49948),
 	}
 
-	notifer.Notify(data)
+	notifer.Print(data)
 	return nil
 }

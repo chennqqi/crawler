@@ -6,23 +6,23 @@ import (
 	"github.com/champkeh/crawler/types"
 )
 
-type ConsoleNotifier struct {
-	outputChan chan types.NotifyData
+type ConsolePrintNotifier struct {
+	printChan chan types.NotifyData
 }
 
-func (o *ConsoleNotifier) ConfigureChan(ch chan types.NotifyData) {
-	o.outputChan = ch
+func (o *ConsolePrintNotifier) ConfigureChan(channel chan types.NotifyData) {
+	o.printChan = channel
 }
 
-func (o *ConsoleNotifier) Notify(out types.NotifyData) {
+func (o *ConsolePrintNotifier) Print(data types.NotifyData) {
 	go func() {
-		o.outputChan <- out
+		o.printChan <- data
 	}()
 }
 
-func (o *ConsoleNotifier) Run() {
+func (o *ConsolePrintNotifier) Run() {
 	for {
-		notify := <-o.outputChan
+		notify := <-o.printChan
 		fmt.Printf("\r%s", notify)
 	}
 }

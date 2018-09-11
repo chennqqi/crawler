@@ -9,9 +9,10 @@ import (
 )
 
 // default 30 is perfect
-var rateLimiter = time.Tick(30 * time.Millisecond)
+//var DefaultRate = 30 * time.Millisecond
+//var RateLimiter = time.Tick(DefaultRate)
 
-func Fetch(url string) ([]byte, error) {
+func Fetch(url string, rateLimiter <-chan time.Time) ([]byte, error) {
 	// limit fetch rate
 	<-rateLimiter
 

@@ -6,23 +6,26 @@ import (
 	"github.com/champkeh/crawler/fetcher"
 	"github.com/champkeh/crawler/notifer"
 	"github.com/champkeh/crawler/persist"
+	"github.com/champkeh/crawler/ratelimiter"
 	"github.com/champkeh/crawler/scheduler"
 	"github.com/champkeh/crawler/seeds"
 	"github.com/champkeh/crawler/types"
 )
 
 type SimpleEngine struct {
-	Scheduler   types.Scheduler
-	Saver       types.Saver
-	Notifier    types.Notifier
-	WorkerCount int
+	Scheduler     types.Scheduler
+	Saver         types.Saver
+	PrintNotifier types.PrintNotifier
+	WorkerCount   int
+	RateLimiter   types.RateLimiter
 }
 
 var DefaultEngine = SimpleEngine{
-	Scheduler:   &scheduler.SimpleScheduler{},
-	Saver:       &persist.Saver{},
-	Notifier:    &notifer.HttpNotifier{},
-	WorkerCount: 100,
+	Scheduler:     &scheduler.SimpleScheduler{},
+	Saver:         &persist.Saver{},
+	PrintNotifier: &notifer.ConsolePrintNotifier{},
+	RateLimiter:   ratelimiter.NewSimpleRateLimiter(50),
+	WorkerCount:   100,
 }
 
 // Run startup the engine
@@ -33,16 +36,16 @@ func (e SimpleEngine) Run() {
 		panic(err)
 	}
 
-	// configure in channel
+	// configure scheduler's in channel
 	reqChannel := seeds.AirportRequestFilter(airports)
 	e.Scheduler.ConfigureRequestChan(reqChannel)
 
-	// configure notify channel
-	notifyOut := make(chan types.NotifyData, 100)
-	e.Notifier.ConfigureChan(notifyOut)
-	go e.Notifier.Run()
+	// configure print notify channel
+	printChan := make(chan types.NotifyData, 100)
+	e.PrintNotifier.ConfigureChan(printChan)
+	go e.PrintNotifier.Run()
 
-	// out channel
+	// configure scheduler's out channel
 	out := make(chan types.ParseResult)
 
 	// create fetch worker
@@ -50,9 +53,12 @@ func (e SimpleEngine) Run() {
 		e.CreateFetchWorker(reqChannel, out)
 	}
 
+	// run rate limter
+	go e.RateLimiter.Run()
+
 	for {
 		result := <-out
-		err := persist.Save(result, e.Notifier)
+		err := persist.Save(result, e.PrintNotifier)
 		if err != nil {
 			log.Printf("\nsave error: %v\n", err)
 			continue
@@ -60,11 +66,12 @@ func (e SimpleEngine) Run() {
 	}
 }
 
-func fetchWorker(r types.Request) (types.ParseResult, error) {
+func (e SimpleEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 	//log.Printf("Fetching %s", r.Url)
-	body, err := fetcher.Fetch(r.Url)
+	body, err := fetcher.Fetch(r.Url, e.RateLimiter.Value())
 	if err != nil {
 		log.Printf("\nFetcher: error fetching url %s: %v\n", r.Url, err)
+		log.Printf("Current Rate: %d\n", e.RateLimiter.RateValue())
 		return types.ParseResult{}, err
 	}
 
@@ -83,10 +90,13 @@ func (e SimpleEngine) CreateFetchWorker(in chan types.Request, out chan types.Pa
 			if !ok {
 				return
 			}
-			parseResult, err := fetchWorker(request)
+			parseResult, err := e.fetchWorker(request)
 			if err != nil {
 				// 请求处理出错，继续加入到 workchannel 中处理
 				e.Scheduler.Submit(request)
+
+				//todo: 实现某种机制来动态调整rateLimiter
+				e.RateLimiter.Slower()
 				continue
 			}
 			out <- parseResult

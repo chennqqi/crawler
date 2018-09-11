@@ -15,9 +15,23 @@ type Saver interface {
 	ConfigureParseResultChan(chan ParseResult)
 }
 
-type Notifier interface {
-	Notify(data NotifyData)
+type PrintNotifier interface {
+	Runner
+
+	Print(data NotifyData)
 	ConfigureChan(chan NotifyData)
+}
+
+type RateLimiter interface {
+	Runner
+
+	Faster()
+	Slower()
+	Value() <-chan time.Time
+	RateValue() uint
+}
+
+type Runner interface {
 	Run()
 }
 
