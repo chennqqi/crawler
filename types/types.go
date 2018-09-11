@@ -43,15 +43,15 @@ type Param struct {
 
 // Request
 type Request struct {
-	Param
+	RawParam   Param
 	Url        string
 	ParserFunc func([]byte) ParseResult
 }
 
 // ParseResult
 type ParseResult struct {
-	Param
-	Items []interface{}
+	RawParam Param
+	Items    []interface{}
 }
 
 func NilParser(contents []byte) ParseResult {
