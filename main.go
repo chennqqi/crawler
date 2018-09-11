@@ -5,5 +5,5 @@ import (
 )
 
 func main() {
-	engine.DefaultEngine.Run()
+	engine.DefaultEngine.Setup()
 }
