@@ -57,7 +57,7 @@ func Print(result types.ParseResult, notifier types.PrintNotifier) {
 
 	data := types.NotifyData{
 		Elapsed:      time.Since(types.T1),
-		Airport:      types.Airport{DepCode: result.Dep, ArrCode: result.Arr},
+		Airport:      types.Airport{DepCode: result.RawParam.Dep, ArrCode: result.RawParam.Arr},
 		AirportIndex: airportIndex,
 		FlightCount:  itemCount,
 		FlightSum:    flightSum,
@@ -74,7 +74,7 @@ func Save(result types.ParseResult) (parser.FlightListData, error) {
 		_, err := conn.Exec("insert into [dbo].[Airline_20180907]" +
 			"(dep,arr,date,flightNo,flightName,flightState,depPlanTime,arrPlanTime," +
 			"depActualTime,arrActualTime,depPort,arrPort)" +
-			" values ('" + result.Dep + "', '" + result.Arr + "', '" + result.Date + "', '" + data.FlightNo + "', '" + data.FlightCompany + "'," +
+			" values ('" + result.RawParam.Dep + "', '" + result.RawParam.Arr + "', '" + result.RawParam.Date + "', '" + data.FlightNo + "', '" + data.FlightCompany + "'," +
 			" '" + data.State + "','" + data.DepTimePlan + "', '" + data.ArrTimePlan + "', '" + data.DepTimeActual + "'," +
 			" '" + data.ArrTimeActual + "', '" + split[0] + "', '" + split[1] + "')")
 		if err != nil {

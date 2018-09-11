@@ -45,7 +45,7 @@ ws.onmessage = function(evt) {
 
     // console.log(evt.data);
 
-    if (data.length > 1000) {
+    if (data.length > 200) {
         data.shift();
     }
     data.push(filter(evt.data));
@@ -61,7 +61,7 @@ ws.onerror = function(evt) {
 };
 
 function filter(message) {
-    var data = JSON.parse(message)
+    var data = JSON.parse(message);
     return {
         name: "abc",
         value: [ data["Elapsed"], data["AirportIndex"] ]

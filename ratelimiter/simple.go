@@ -76,6 +76,8 @@ func (r *simpleRateLimiter) Slower() {
 	r.RateTick = time.Tick(time.Duration(r.Rate) * time.Millisecond)
 }
 
+// Run is used for increase the rate limiter's rate value.
+// auto call Faster() method per 10 seconds
 func (r *simpleRateLimiter) Run() {
 	var rate = time.Tick(10 * time.Second)
 	for {
