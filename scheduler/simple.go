@@ -1,6 +1,8 @@
 package scheduler
 
 import (
+	"errors"
+
 	"github.com/champkeh/crawler/types"
 )
 
@@ -13,6 +15,10 @@ func (s *SimpleScheduler) ConfigureRequestChan(channel chan types.Request) {
 }
 
 func (s *SimpleScheduler) Submit(req types.Request) {
+	if s.requestChan == nil {
+		panic(errors.New("before submit request to scheduler, you must" +
+			" configure the request-channel for this scheduler"))
+	}
 	go func() {
 		s.requestChan <- req
 	}()

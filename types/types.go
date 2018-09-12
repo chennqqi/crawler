@@ -10,11 +10,6 @@ type Scheduler interface {
 	ConfigureRequestChan(chan Request)
 }
 
-type Saver interface {
-	Submit(ParseResult)
-	ConfigureParseResultChan(chan ParseResult)
-}
-
 type PrintNotifier interface {
 	Runner
 

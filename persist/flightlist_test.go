@@ -9,7 +9,7 @@ import (
 
 func TestSave(t *testing.T) {
 	var result = types.ParseResult{
-		Param: types.Param{
+		RawParam: types.Param{
 			Dep:  "PEK",
 			Arr:  "SHA",
 			Date: "2018-09-10",
@@ -38,7 +38,7 @@ func TestSave(t *testing.T) {
 		},
 	}
 
-	err := Save(result, nil)
+	_, err := Save(result, nil)
 	if err != nil {
 		t.Errorf("save error: %v", err)
 	}

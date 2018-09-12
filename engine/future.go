@@ -14,7 +14,6 @@ import (
 // this engine is used to fetch future flight data
 type FutureEngine struct {
 	Scheduler     types.Scheduler
-	Saver         types.Saver
 	PrintNotifier types.PrintNotifier
 	RateLimiter   types.RateLimiter
 	WorkerCount   int

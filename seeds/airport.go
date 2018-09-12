@@ -7,25 +7,37 @@ import (
 
 	"fmt"
 
-	"strings"
-
 	"github.com/champkeh/crawler/config"
 	"github.com/champkeh/crawler/types"
 	"github.com/champkeh/crawler/umetrip/parser"
 	_ "github.com/denisenkom/go-mssqldb"
 )
 
+var (
+	// 交叉连接之后的航线总数
+	TotalAirports int
+)
+
 // PullAirportList pull all airport data e.g. (PEK SHA),(SHA LYA) etc from database
 func PullAirportList() (chan types.Airport, error) {
 
-	// connect sql
+	// connect sql server
 	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=10",
 		config.SqlUser, config.SqlPass, config.SqlAddr, config.Database)
-
 	db, err := sql.Open("sqlserver", connstr)
 	if err != nil {
 		return nil, err
 	}
+
+	// query total airports to fetch
+	row := db.QueryRow(`select count(*) from dbo.Inf_AirportSTD a
+				join dbo.Inf_AirportSTD b on a.CityCode != b.CityCode`)
+	err = row.Scan(&TotalAirports)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("total airport count is", TotalAirports)
 
 	// this channel is non-buffer channel, which means that send to this
 	// channel will be blocked if it has already value in it.
@@ -64,7 +76,7 @@ var JsonConfig Config = Config{
 }
 
 func init() {
-	// read config file
+	// read config file to get date
 	//content, err := ioutil.ReadFile("./config.json")
 	//if err != nil {
 	//	panic(err)
@@ -74,18 +86,18 @@ func init() {
 	//	panic(err)
 	//}
 
-	// connect sql-server
-	db, err := sql.Open("sqlserver",
-		"sqlserver://sa:123456@localhost:1433?database=data&connection+timeout=10")
-	if err != nil {
-		panic(err)
-	}
-	// create table to save result
-	_, err = db.Exec("sp_createTable", sql.Named("tablename",
-		"Airline_"+strings.Replace(JsonConfig.Date, "-", "", -1)[0:6]))
-	if err != nil {
-		panic(err)
-	}
+	// connect sql server
+	//db, err := sql.Open("sqlserver",
+	//	"sqlserver://sa:123456@localhost:1433?database=data&connection+timeout=10")
+	//if err != nil {
+	//	panic(err)
+	//}
+	//// create table to save result
+	//_, err = db.Exec("sp_createTable", sql.Named("tablename",
+	//	"Airline_"+strings.Replace(JsonConfig.Date, "-", "", -1)[0:6]))
+	//if err != nil {
+	//	panic(err)
+	//}
 }
 
 func AirportRequestFilter(airports chan types.Airport) chan types.Request {

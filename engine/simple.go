@@ -18,7 +18,6 @@ import (
 
 type SimpleEngine struct {
 	Scheduler     types.Scheduler
-	Saver         types.Saver
 	PrintNotifier types.PrintNotifier
 	RateLimiter   types.RateLimiter
 	WorkerCount   int
@@ -26,7 +25,6 @@ type SimpleEngine struct {
 
 var DefaultSimpleEngine = SimpleEngine{
 	Scheduler:     &scheduler.SimpleScheduler{},
-	Saver:         &persist.Saver{},
 	PrintNotifier: &notifier.ConsolePrintNotifier{},
 	RateLimiter:   ratelimiter.NewSimpleRateLimiter(80),
 	WorkerCount:   100,
@@ -75,15 +73,15 @@ func (e SimpleEngine) Run() {
 		case result := <-out:
 			// this is only print to console/http client,
 			// not save to database.
-			//persist.Print(result, e.PrintNotifier)
+			persist.Print(result, e.PrintNotifier)
 
 			// this is save to database
-			go func() {
-				data, err := persist.Save(result, e.PrintNotifier)
-				if err != nil {
-					log.Printf("\nsave %v error: %v\n", data, err)
-				}
-			}()
+			//go func() {
+			//	data, err := persist.Save(result, e.PrintNotifier)
+			//	if err != nil {
+			//		log.Printf("\nsave %v error: %v\n", data, err)
+			//	}
+			//}()
 
 		case <-timer.C:
 			fmt.Println("Read timeout, exit the program.")
@@ -92,9 +90,6 @@ func (e SimpleEngine) Run() {
 
 	}
 }
-
-// Run is used to fetch the flight data which duration the next 2 hours,
-// and execute every 10 minutes.
 
 func (e SimpleEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 	//log.Printf("Fetching %s", r.Url)
