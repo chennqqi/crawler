@@ -26,8 +26,9 @@ type SimpleEngine struct {
 var DefaultSimpleEngine = SimpleEngine{
 	Scheduler:     &scheduler.SimpleScheduler{},
 	PrintNotifier: &notifier.ConsolePrintNotifier{},
-	RateLimiter:   ratelimiter.NewSimpleRateLimiter(80),
-	WorkerCount:   100,
+	RateLimiter:   ratelimiter.NewSimpleRateLimiter(50),
+	//RateLimiter: ratelimiter.NewTokenBucketRateLimiter(20, 100),
+	WorkerCount: 100,
 }
 
 // Run is the first step to startup the engine.
@@ -53,14 +54,9 @@ func (e SimpleEngine) Run() {
 		e.CreateFetchWorker(reqChannel, out)
 	}
 
-	// configure print notify channel
-	// this channel is used for cache the notify data, and have
-	// 100 buffer space.
-	printChan := make(chan types.NotifyData, 100)
-	e.PrintNotifier.ConfigureChan(printChan)
+	// run the print-notifier
 	go e.PrintNotifier.Run()
-
-	// run the rate limiter
+	// run the rate-limiter
 	go e.RateLimiter.Run()
 
 	timer := time.NewTimer(3 * time.Minute)
@@ -73,7 +69,7 @@ func (e SimpleEngine) Run() {
 		case result := <-out:
 			// this is only print to console/http client,
 			// not save to database.
-			persist.Print(result, e.PrintNotifier)
+			persist.Print(result, e.PrintNotifier, e.RateLimiter)
 
 			// this is save to database
 			//go func() {
@@ -93,7 +89,7 @@ func (e SimpleEngine) Run() {
 
 func (e SimpleEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 	//log.Printf("Fetching %s", r.Url)
-	body, err := fetcher.Fetch(r.Url, e.RateLimiter.Value())
+	body, err := fetcher.Fetch(r.Url, e.RateLimiter)
 	if err != nil {
 		log.Printf("\nFetcher: error fetching url %s: %v\n", r.Url, err)
 		log.Printf("Current Rate: %d\n", e.RateLimiter.RateValue())

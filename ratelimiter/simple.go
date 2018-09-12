@@ -1,7 +1,6 @@
 package ratelimiter
 
 import (
-	"log"
 	"time"
 
 	"sync"
@@ -17,20 +16,20 @@ type simpleRateLimiter struct {
 	sync.Mutex
 }
 
+func (r *simpleRateLimiter) Wait() {
+	<-r.RateTick
+}
+
 func NewSimpleRateLimiter(rate uint) types.RateLimiter {
-	if rate < 50 || rate > 5000 {
+	if rate < 30 || rate > 5000 {
 		panic("rate value is invalid(50~5000)")
 	}
 	return &simpleRateLimiter{
 		Rate:     rate,
-		Fastest:  50,
+		Fastest:  30,
 		Slowest:  5000,
 		RateTick: time.Tick(time.Duration(rate) * time.Millisecond),
 	}
-}
-
-func (r *simpleRateLimiter) Value() <-chan time.Time {
-	return r.RateTick
 }
 
 func (r *simpleRateLimiter) RateValue() uint {
@@ -85,7 +84,7 @@ func (r *simpleRateLimiter) Run() {
 		case <-rate:
 
 			r.Faster()
-			log.Printf("\nCurrent Rate: %d\n", r.Rate)
+			//log.Printf("\nCurrent Rate: %d\n", r.Rate)
 		}
 	}
 }

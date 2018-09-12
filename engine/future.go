@@ -43,14 +43,10 @@ func (e FutureEngine) Run() {
 		e.CreateFetchWorker(reqChannel, out)
 	}
 
-	// configure print notify channel
-	// this channel is used for cache the notify data, and have
-	// 100 buffer space.
-	printChan := make(chan types.NotifyData, 100)
-	e.PrintNotifier.ConfigureChan(printChan)
+	// run the print-notifier
 	go e.PrintNotifier.Run()
 
-	// run the rate limiter
+	// run the rate-limiter
 	go e.RateLimiter.Run()
 
 	timer := time.NewTimer(3 * time.Minute)
@@ -83,7 +79,7 @@ func (e FutureEngine) Run() {
 
 func (e FutureEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 	//log.Printf("Fetching %s", r.Url)
-	body, err := fetcher.Fetch(r.Url, e.RateLimiter.Value())
+	body, err := fetcher.Fetch(r.Url, e.RateLimiter)
 	if err != nil {
 		log.Printf("\nFetcher: error fetching url %s: %v\n", r.Url, err)
 		log.Printf("Current Rate: %d\n", e.RateLimiter.RateValue())

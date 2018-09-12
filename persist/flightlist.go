@@ -33,7 +33,9 @@ func init() {
 var airportIndex = 0
 var flightSum = 0
 
-func Print(result types.ParseResult, notifier types.PrintNotifier) {
+func Print(result types.ParseResult, notifier types.PrintNotifier,
+	limiter types.RateLimiter) {
+
 	var itemCount = 0
 	for _, item := range result.Items {
 		_ = item.(parser.FlightListData)
@@ -47,9 +49,11 @@ func Print(result types.ParseResult, notifier types.PrintNotifier) {
 		Elapsed:      time.Since(types.T1),
 		Airport:      types.Airport{DepCode: result.RawParam.Dep, ArrCode: result.RawParam.Arr},
 		AirportIndex: airportIndex,
+		AirportTotal: seeds.TotalAirports,
 		FlightCount:  itemCount,
 		FlightSum:    flightSum,
 		Progress:     float32(100 * float64(airportIndex) / float64(seeds.TotalAirports)),
+		CurrentRate:  limiter.RateValue(),
 	}
 	notifier.Print(data)
 
@@ -95,6 +99,7 @@ func Save(result types.ParseResult, notifier types.PrintNotifier) (
 		Elapsed:      time.Since(types.T1),
 		Airport:      types.Airport{DepCode: result.RawParam.Dep, ArrCode: result.RawParam.Arr},
 		AirportIndex: airportIndex,
+		AirportTotal: seeds.TotalAirports,
 		FlightCount:  itemCount,
 		FlightSum:    flightSum,
 		Progress:     float32(100 * float64(airportIndex) / float64(seeds.TotalAirports)),

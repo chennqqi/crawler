@@ -7,19 +7,25 @@ import (
 
 	"io/ioutil"
 
+	"sync"
+
+	"time"
+
 	"github.com/champkeh/crawler/types"
 	"github.com/gorilla/websocket"
 )
 
 type HttpPrintNotifier struct {
 	printChan chan types.NotifyData
-}
-
-func (o *HttpPrintNotifier) ConfigureChan(channel chan types.NotifyData) {
-	o.printChan = channel
+	running   bool
+	sync.Mutex
 }
 
 func (o *HttpPrintNotifier) Print(data types.NotifyData) {
+	for o.printChan == nil {
+		time.Sleep(100 * time.Millisecond)
+	}
+
 	go func() {
 		o.printChan <- data
 	}()
@@ -28,6 +34,18 @@ func (o *HttpPrintNotifier) Print(data types.NotifyData) {
 var upgrader = websocket.Upgrader{}
 
 func (o *HttpPrintNotifier) Run() {
+	o.Lock()
+
+	if o.running {
+		o.Unlock()
+		return
+	}
+	o.running = true
+
+	if o.printChan == nil {
+		o.printChan = make(chan types.NotifyData, 100)
+	}
+	o.Unlock()
 
 	// start a web socket server
 	http.HandleFunc("/", index)

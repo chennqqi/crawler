@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"time"
+
+	"github.com/champkeh/crawler/types"
 )
 
-func Fetch(url string, rateLimiter <-chan time.Time) ([]byte, error) {
+func Fetch(url string, rateLimiter types.RateLimiter) ([]byte, error) {
 	// limit fetch rate
-	<-rateLimiter
+	rateLimiter.Wait()
 
 	resp, err := http.Get(url)
 	if err != nil {

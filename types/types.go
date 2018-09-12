@@ -14,7 +14,6 @@ type PrintNotifier interface {
 	Runner
 
 	Print(data NotifyData)
-	ConfigureChan(chan NotifyData)
 }
 
 type RateLimiter interface {
@@ -22,7 +21,7 @@ type RateLimiter interface {
 
 	Faster()
 	Slower()
-	Value() <-chan time.Time
+	Wait()
 	RateValue() uint
 }
 
@@ -73,13 +72,15 @@ type NotifyData struct {
 	Elapsed      time.Duration
 	Airport      Airport
 	AirportIndex int
+	AirportTotal int
 	FlightCount  int
 	FlightSum    int
 	Progress     float32
+	CurrentRate  uint
 }
 
 func (o NotifyData) String() string {
-	return fmt.Sprintf("%v Airport #%d (%s->%s): items %d; total: %d/%.2f%%",
-		o.Elapsed, o.AirportIndex, o.Airport.DepCode, o.Airport.ArrCode,
-		o.FlightCount, o.FlightSum, o.Progress)
+	return fmt.Sprintf("%v Airport #%d/%d (%s->%s): items %d; flight: %d/%.2f%% Rate:%d",
+		o.Elapsed, o.AirportIndex, o.AirportTotal, o.Airport.DepCode, o.Airport.ArrCode,
+		o.FlightCount, o.FlightSum, o.Progress, o.CurrentRate)
 }
