@@ -18,12 +18,12 @@ type simpleRateLimiter struct {
 }
 
 func NewSimpleRateLimiter(rate uint) types.RateLimiter {
-	if rate < 5 || rate > 100 {
-		panic("rate value is invalid(5~100)")
+	if rate < 50 || rate > 5000 {
+		panic("rate value is invalid(50~5000)")
 	}
 	return &simpleRateLimiter{
 		Rate:     rate,
-		Fastest:  30,
+		Fastest:  50,
 		Slowest:  5000,
 		RateTick: time.Tick(time.Duration(rate) * time.Millisecond),
 	}

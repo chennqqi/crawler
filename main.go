@@ -5,5 +5,7 @@ import (
 )
 
 func main() {
-	engine.DefaultEngine.Setup()
+	// execute once time per day.
+	// should make this be a Scheduled Tasks
+	engine.DefaultSimpleEngine.Run()
 }

@@ -5,8 +5,6 @@ import (
 
 	"time"
 
-	"fmt"
-
 	"strings"
 
 	"github.com/champkeh/crawler/types"
@@ -29,13 +27,13 @@ func (s *Saver) Submit(result types.ParseResult) {
 }
 
 var (
-	conn *sql.DB
+	db *sql.DB
 )
 
 func init() {
 	// connect sql
 	var err error
-	conn, err = sql.Open("mssql",
+	db, err = sql.Open("sqlserver",
 		"sqlserver://sa:123456@localhost:1433?database=data&connection+timeout=10")
 	if err != nil {
 		panic(err)
@@ -65,23 +63,63 @@ func Print(result types.ParseResult, notifier types.PrintNotifier) {
 	}
 
 	notifier.Print(data)
+
+	// task is completed?
+	//if airportIndex >= 49948 {
+	//	go func() {
+	//		// program exit after 5 seconds
+	//		fmt.Println("Completed! Program will exit after 5 seconds...")
+	//		time.Sleep(5 * time.Second)
+	//		os.Exit(0)
+	//	}()
+	//}
 }
 
-func Save(result types.ParseResult) (parser.FlightListData, error) {
+func Save(result types.ParseResult, notifier types.PrintNotifier) (parser.FlightListData, error) {
+	date := strings.Replace(result.RawParam.Date, "-", "", -1)[0:6]
+	var itemCount = 0
+
 	for _, item := range result.Items {
 		data := item.(parser.FlightListData)
 		split := strings.Split(data.Airport, "/")
-		_, err := conn.Exec("insert into [dbo].[Airline_20180907]" +
-			"(dep,arr,date,flightNo,flightName,flightState,depPlanTime,arrPlanTime," +
-			"depActualTime,arrActualTime,depPort,arrPort)" +
-			" values ('" + result.RawParam.Dep + "', '" + result.RawParam.Arr + "', '" + result.RawParam.Date + "', '" + data.FlightNo + "', '" + data.FlightCompany + "'," +
-			" '" + data.State + "','" + data.DepTimePlan + "', '" + data.ArrTimePlan + "', '" + data.DepTimeActual + "'," +
-			" '" + data.ArrTimeActual + "', '" + split[0] + "', '" + split[1] + "')")
+
+		_, err := db.Exec("insert into [dbo].[Airline_" + date + "]" +
+			"(dep,arr,date,flightNo,flightName,flightState,depPlanTime,arrPlanTime,depActualTime," +
+			"arrActualTime,depPort,arrPort)" +
+			" values ('" + result.RawParam.Dep + "', '" + result.RawParam.Arr + "', '" + result.RawParam.Date +
+			"', '" + data.FlightNo + "', '" + data.FlightCompany + "', '" + data.State + "', '" + data.DepTimePlan +
+			"', '" + data.ArrTimePlan + "', '" + data.DepTimeActual + "', '" + data.ArrTimeActual +
+			"', '" + split[0] + "', '" + split[1] + "')")
 		if err != nil {
 			return data, err
 		}
+
+		itemCount++
+		flightSum++
 	}
+
 	airportIndex++
-	fmt.Printf("\rSave airport #%d", airportIndex)
+
+	data := types.NotifyData{
+		Elapsed:      time.Since(types.T1),
+		Airport:      types.Airport{DepCode: result.RawParam.Dep, ArrCode: result.RawParam.Arr},
+		AirportIndex: airportIndex,
+		FlightCount:  itemCount,
+		FlightSum:    flightSum,
+		Progress:     float32(100 * float64(airportIndex) / 49948),
+	}
+
+	notifier.Print(data)
+
+	// task is completed?
+	//if airportIndex >= 49948 {
+	//	go func() {
+	//		// program exit after 5 seconds
+	//		fmt.Println("Completed! Program will exit after 5 seconds...")
+	//		time.Sleep(5 * time.Second)
+	//		os.Exit(0)
+	//	}()
+	//}
+
 	return parser.FlightListData{}, nil
 }

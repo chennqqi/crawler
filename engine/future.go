@@ -1,22 +1,18 @@
 package engine
 
 import (
+	"fmt"
 	"log"
-
 	"time"
 
-	"fmt"
-
 	"github.com/champkeh/crawler/fetcher"
-	"github.com/champkeh/crawler/notifier"
 	"github.com/champkeh/crawler/persist"
-	"github.com/champkeh/crawler/ratelimiter"
-	"github.com/champkeh/crawler/scheduler"
 	"github.com/champkeh/crawler/seeds"
 	"github.com/champkeh/crawler/types"
 )
 
-type SimpleEngine struct {
+// this engine is used to fetch future flight data
+type FutureEngine struct {
 	Scheduler     types.Scheduler
 	Saver         types.Saver
 	PrintNotifier types.PrintNotifier
@@ -24,27 +20,20 @@ type SimpleEngine struct {
 	WorkerCount   int
 }
 
-var DefaultSimpleEngine = SimpleEngine{
-	Scheduler:     &scheduler.SimpleScheduler{},
-	Saver:         &persist.Saver{},
-	PrintNotifier: &notifier.ConsolePrintNotifier{},
-	RateLimiter:   ratelimiter.NewSimpleRateLimiter(80),
-	WorkerCount:   100,
-}
-
-// Run is the first step to startup the engine.
+// Setup is the first step to startup the engine.
 // this is used to fetch the first batch flight list data
 // only once every day, and save result to database
-func (e SimpleEngine) Run() {
+// when completed this will exit and should run after 24 hour(e.g. tomorrow)
+func (e FutureEngine) Run() {
 	// generate airport seed
-	airports, err := seeds.PullAirportList()
+	flightlist, err := seeds.PullFlightListAt("2018-09-13")
 	if err != nil {
 		panic(err)
 	}
 
 	// configure scheduler's in channel
 	// this filter will generate tomorrow flight request
-	reqChannel := seeds.AirportRequestFilter(airports)
+	reqChannel := seeds.FlightRequestFilter(flightlist)
 	e.Scheduler.ConfigureRequestChan(reqChannel)
 
 	// configure scheduler's out channel, has 100 space buffer channel
@@ -93,10 +82,7 @@ func (e SimpleEngine) Run() {
 	}
 }
 
-// Run is used to fetch the flight data which duration the next 2 hours,
-// and execute every 10 minutes.
-
-func (e SimpleEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
+func (e FutureEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 	//log.Printf("Fetching %s", r.Url)
 	body, err := fetcher.Fetch(r.Url, e.RateLimiter.Value())
 	if err != nil {
@@ -111,7 +97,7 @@ func (e SimpleEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 	return result, nil
 }
 
-func (e SimpleEngine) CreateFetchWorker(in chan types.Request, out chan types.ParseResult) {
+func (e FutureEngine) CreateFetchWorker(in chan types.Request, out chan types.ParseResult) {
 	go func() {
 		for {
 			request := <-in
