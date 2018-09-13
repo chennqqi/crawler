@@ -37,3 +37,9 @@ func Parse(s string) ProxyIP {
 type OriginIP struct {
 	Origin string `json:"Origin"`
 }
+
+type ProxyPool interface {
+	Start()
+	Submit(ProxyIP)
+	Fetch() ProxyIP
+}
