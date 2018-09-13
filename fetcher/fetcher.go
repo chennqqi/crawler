@@ -19,7 +19,15 @@ func Fetch(url string, rateLimiter types.RateLimiter) ([]byte, error) {
 	// limit fetch rate
 	rateLimiter.Wait()
 
-	resp, err := http.Get(url)
+	request, _ := http.NewRequest("GET", url, nil)
+
+	request.Header.Set("User-Agent", verifier.GetAgent())
+	request.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	request.Header.Set("Connection", "keep-alive")
+
+	resp, err := http.DefaultClient.Do(request)
+
+	//resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
 	}
