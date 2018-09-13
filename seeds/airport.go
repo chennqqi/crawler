@@ -7,8 +7,6 @@ import (
 
 	"fmt"
 
-	"strings"
-
 	"github.com/champkeh/crawler/config"
 	"github.com/champkeh/crawler/types"
 	"github.com/champkeh/crawler/umetrip/parser"
@@ -38,8 +36,6 @@ func PullAirportList() (chan types.Airport, error) {
 	if err != nil {
 		panic(err)
 	}
-
-	fmt.Println("total airport count is", TotalAirports)
 
 	// this channel is non-buffer channel, which means that send to this
 	// channel will be blocked if it has already value in it.
@@ -89,17 +85,17 @@ func init() {
 	//}
 
 	// connect sql server
-	db, err := sql.Open("sqlserver",
-		"sqlserver://sa:123456@localhost:1433?database=data&connection+timeout=10")
-	if err != nil {
-		panic(err)
-	}
-	// create table to save result
-	_, err = db.Exec("sp_createTable", sql.Named("tablename",
-		"Airline_"+strings.Replace(JsonConfig.Date, "-", "", -1)[0:6]))
-	if err != nil {
-		panic(err)
-	}
+	//db, err := sql.Open("sqlserver",
+	//	"sqlserver://sa:123456@localhost:1433?database=data&connection+timeout=10")
+	//if err != nil {
+	//	panic(err)
+	//}
+	//// create table to save result
+	//_, err = db.Exec("sp_createTable", sql.Named("tablename",
+	//	"Airline_"+strings.Replace(JsonConfig.Date, "-", "", -1)[0:6]))
+	//if err != nil {
+	//	panic(err)
+	//}
 }
 
 func AirportRequestFilter(airports chan types.Airport) chan types.Request {

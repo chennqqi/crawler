@@ -31,7 +31,7 @@ func VerifyProxy(ip types.ProxyIP) error {
 		Transport: &http.Transport{
 			Proxy: http.ProxyURL(proxy),
 		},
-		Timeout: time.Duration(30 * time.Second),
+		Timeout: time.Duration(20 * time.Second),
 	}
 
 	response, err := client.Do(request)

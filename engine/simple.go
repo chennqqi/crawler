@@ -10,6 +10,7 @@ import (
 	"github.com/champkeh/crawler/fetcher"
 	"github.com/champkeh/crawler/notifier"
 	"github.com/champkeh/crawler/persist"
+	types2 "github.com/champkeh/crawler/proxy/types"
 	"github.com/champkeh/crawler/ratelimiter"
 	"github.com/champkeh/crawler/scheduler"
 	"github.com/champkeh/crawler/seeds"
@@ -26,7 +27,7 @@ type SimpleEngine struct {
 var DefaultSimpleEngine = SimpleEngine{
 	Scheduler:     &scheduler.SimpleScheduler{},
 	PrintNotifier: &notifier.ConsolePrintNotifier{},
-	RateLimiter:   ratelimiter.NewSimpleRateLimiter(50),
+	RateLimiter:   ratelimiter.NewSimpleRateLimiter(30),
 	WorkerCount:   100,
 }
 
@@ -48,6 +49,9 @@ func (e SimpleEngine) Run() {
 	// configure scheduler's out channel, has 100 space buffer channel
 	out := make(chan types.ParseResult, 100)
 
+	// run proxy fetcher
+	//proxyChan := proxy.Run()
+
 	// create fetch worker
 	for i := 0; i < e.WorkerCount; i++ {
 		e.CreateFetchWorker(reqChannel, out)
@@ -68,15 +72,15 @@ func (e SimpleEngine) Run() {
 		case result := <-out:
 			// this is only print to console/http client,
 			// not save to database.
-			//persist.Print(result, e.PrintNotifier, e.RateLimiter)
+			persist.Print(result, e.PrintNotifier, e.RateLimiter)
 
 			// this is save to database
-			go func() {
-				data, err := persist.Save(result, e.PrintNotifier, e.RateLimiter)
-				if err != nil {
-					log.Printf("\nsave %v error: %v\n", data, err)
-				}
-			}()
+			//go func() {
+			//	data, err := persist.Save(result, e.PrintNotifier, e.RateLimiter)
+			//	if err != nil {
+			//		log.Printf("\nsave %v error: %v\n", data, err)
+			//	}
+			//}()
 
 		case <-timer.C:
 			fmt.Println("Read timeout, exit the program.")
@@ -86,8 +90,18 @@ func (e SimpleEngine) Run() {
 	}
 }
 
+var cacheProxy = make(chan types2.ProxyIP, 300)
+
 func (e SimpleEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 	//log.Printf("Fetching %s", r.Url)
+
+	//var proxyIP types2.ProxyIP
+	//select {
+	//case proxyIP = <-cacheProxy:
+	//case proxyIP = <-proxyIPS:
+	//}
+
+	//body, err := fetcher.FetchWithProxy(r.Url, e.RateLimiter, proxyIP)
 	body, err := fetcher.Fetch(r.Url, e.RateLimiter)
 	if err != nil {
 		log.Printf("\nFetcher: error fetching url %s: %v\n", r.Url, err)
@@ -95,6 +109,10 @@ func (e SimpleEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 		return types.ParseResult{}, err
 	}
 
+	//go func() {
+	//	cacheProxy <- proxyIP
+	//	fmt.Printf("len(cacheProxy)=%d len(proxyIPS)=%d\n", len(cacheProxy), len(proxyIPS))
+	//}()
 	result := r.ParserFunc(body)
 	result.RawParam = r.RawParam
 

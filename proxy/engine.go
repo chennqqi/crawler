@@ -1,14 +1,12 @@
 package proxy
 
 import (
-	"fmt"
-
 	"github.com/champkeh/crawler/proxy/fetcher"
 	"github.com/champkeh/crawler/proxy/types"
 	"github.com/champkeh/crawler/proxy/verifier"
 )
 
-func Run() {
+func Run() chan types.ProxyIP {
 	out := make(chan types.ProxyIP, 100)
 	for i := 0; i < 3; i++ {
 		createFetchWorker(out)
@@ -19,16 +17,17 @@ func Run() {
 		createVerifyWorker(out, verified)
 	}
 
-	umetrip := make(chan types.ProxyIP, 100)
+	umetrip := make(chan types.ProxyIP, 500)
 	for i := 0; i < 100; i++ {
 		createUmetripVerifyWorker(verified, umetrip)
 	}
 
-	for {
-		proxy := <-umetrip
-		fmt.Println(proxy)
-		//persist.Save(proxy)
-	}
+	return umetrip
+	//for {
+	//	proxy := <-umetrip
+	//	fmt.Println(proxy)
+	//	//persist.Save(proxy)
+	//}
 }
 
 func createFetchWorker(out chan types.ProxyIP) {

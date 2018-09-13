@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"time"
 
+	"io/ioutil"
+
 	"github.com/champkeh/crawler/proxy/types"
 )
 
@@ -27,7 +29,7 @@ func UmetripVerify(ip types.ProxyIP) error {
 		Transport: &http.Transport{
 			Proxy: http.ProxyURL(proxy),
 		},
-		Timeout: time.Duration(30 * time.Second),
+		Timeout: time.Duration(20 * time.Second),
 	}
 
 	response, err := client.Do(request)
@@ -39,10 +41,10 @@ func UmetripVerify(ip types.ProxyIP) error {
 	if response.StatusCode != http.StatusOK {
 		return errors.New("status code is not 200")
 	}
-	//respBytes, err := ioutil.ReadAll(response.Body)
-	//if err != nil {
-	//	return err
-	//}
-
+	respBytes, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s\n", respBytes)
 	return nil
 }

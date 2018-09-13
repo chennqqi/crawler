@@ -37,12 +37,12 @@ func (r *simpleRateLimiter) Wait() {
 }
 
 func NewSimpleRateLimiter(rate uint) types.RateLimiter {
-	if rate < 30 || rate > 5000 {
+	if rate < 10 || rate > 5000 {
 		panic("rate value is invalid(30~5000)")
 	}
 	return &simpleRateLimiter{
 		rate:     rate,
-		Fastest:  30,
+		Fastest:  10,
 		Slowest:  5000,
 		rateTick: time.Tick(time.Duration(rate) * time.Millisecond),
 	}
