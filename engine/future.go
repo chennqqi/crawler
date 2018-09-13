@@ -59,15 +59,15 @@ func (e FutureEngine) Run() {
 		case result := <-out:
 			// this is only print to console/http client,
 			// not save to database.
-			//persist.Print(result, e.PrintNotifier)
+			persist.Print(result, e.PrintNotifier, e.RateLimiter)
 
 			// this is save to database
-			go func() {
-				data, err := persist.Save(result, e.PrintNotifier)
-				if err != nil {
-					log.Printf("\nsave %v error: %v\n", data, err)
-				}
-			}()
+			//go func() {
+			//	data, err := persist.Save(result, e.PrintNotifier, e.RateLimiter)
+			//	if err != nil {
+			//		log.Printf("\nsave %v error: %v\n", data, err)
+			//	}
+			//}()
 
 		case <-timer.C:
 			fmt.Println("Read timeout, exit the program.")
@@ -82,7 +82,7 @@ func (e FutureEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 	body, err := fetcher.Fetch(r.Url, e.RateLimiter)
 	if err != nil {
 		log.Printf("\nFetcher: error fetching url %s: %v\n", r.Url, err)
-		log.Printf("Current Rate: %d\n", e.RateLimiter.RateValue())
+		log.Printf("Current Rate: %d\n", e.RateLimiter.Rate())
 		return types.ParseResult{}, err
 	}
 

@@ -53,7 +53,7 @@ func Print(result types.ParseResult, notifier types.PrintNotifier,
 		FlightCount:  itemCount,
 		FlightSum:    flightSum,
 		Progress:     float32(100 * float64(airportIndex) / float64(seeds.TotalAirports)),
-		CurrentRate:  limiter.RateValue(),
+		QPS:          limiter.QPS(),
 	}
 	notifier.Print(data)
 
@@ -68,7 +68,7 @@ func Print(result types.ParseResult, notifier types.PrintNotifier,
 	}
 }
 
-func Save(result types.ParseResult, notifier types.PrintNotifier) (
+func Save(result types.ParseResult, notifier types.PrintNotifier, limiter types.RateLimiter) (
 	parser.FlightListData, error) {
 
 	date := strings.Replace(result.RawParam.Date, "-", "", -1)[0:6]
@@ -103,6 +103,7 @@ func Save(result types.ParseResult, notifier types.PrintNotifier) (
 		FlightCount:  itemCount,
 		FlightSum:    flightSum,
 		Progress:     float32(100 * float64(airportIndex) / float64(seeds.TotalAirports)),
+		QPS:          limiter.QPS(),
 	}
 	notifier.Print(data)
 

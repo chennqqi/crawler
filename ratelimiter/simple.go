@@ -9,31 +9,43 @@ import (
 )
 
 type simpleRateLimiter struct {
-	Rate     uint
-	Fastest  uint
-	Slowest  uint
-	RateTick <-chan time.Time
+	Fastest uint
+	Slowest uint
+
+	rate     uint
+	rateTick <-chan time.Time
+
 	sync.Mutex
 }
 
+func (r *simpleRateLimiter) QPS() float64 {
+	r.Lock()
+	defer r.Unlock()
+
+	return 1000 / float64(r.rate)
+}
+
+func (r *simpleRateLimiter) Rate() uint {
+	r.Lock()
+	defer r.Unlock()
+
+	return r.rate
+}
+
 func (r *simpleRateLimiter) Wait() {
-	<-r.RateTick
+	<-r.rateTick
 }
 
 func NewSimpleRateLimiter(rate uint) types.RateLimiter {
 	if rate < 30 || rate > 5000 {
-		panic("rate value is invalid(50~5000)")
+		panic("rate value is invalid(30~5000)")
 	}
 	return &simpleRateLimiter{
-		Rate:     rate,
+		rate:     rate,
 		Fastest:  30,
 		Slowest:  5000,
-		RateTick: time.Tick(time.Duration(rate) * time.Millisecond),
+		rateTick: time.Tick(time.Duration(rate) * time.Millisecond),
 	}
-}
-
-func (r *simpleRateLimiter) RateValue() uint {
-	return r.Rate
 }
 
 var rateLimiter = time.Tick(20 * time.Millisecond)
@@ -44,22 +56,22 @@ func (r *simpleRateLimiter) Faster() {
 	r.Lock()
 	defer r.Unlock()
 
-	if r.Rate <= r.Fastest {
+	if r.rate <= r.Fastest {
 		return
 	}
-	if r.Rate >= 1500 {
-		r.Rate -= 200
-	} else if r.Rate >= 1000 {
-		r.Rate -= 100
-	} else if r.Rate >= 500 {
-		r.Rate -= 50
-	} else if r.Rate >= 100 {
-		r.Rate -= 10
+	if r.rate >= 1500 {
+		r.rate -= 200
+	} else if r.rate >= 1000 {
+		r.rate -= 100
+	} else if r.rate >= 500 {
+		r.rate -= 50
+	} else if r.rate >= 100 {
+		r.rate -= 10
 	} else {
-		r.Rate -= 5
+		r.rate -= 5
 	}
 
-	r.RateTick = time.Tick(time.Duration(r.Rate) * time.Millisecond)
+	r.rateTick = time.Tick(time.Duration(r.rate) * time.Millisecond)
 }
 
 func (r *simpleRateLimiter) Slower() {
@@ -68,11 +80,11 @@ func (r *simpleRateLimiter) Slower() {
 	r.Lock()
 	defer r.Unlock()
 
-	if r.Rate >= r.Slowest {
+	if r.rate >= r.Slowest {
 		return
 	}
-	r.Rate += 5
-	r.RateTick = time.Tick(time.Duration(r.Rate) * time.Millisecond)
+	r.rate += 5
+	r.rateTick = time.Tick(time.Duration(r.rate) * time.Millisecond)
 }
 
 // Run is used for increase the rate limiter's rate value.
@@ -82,9 +94,9 @@ func (r *simpleRateLimiter) Run() {
 	for {
 		select {
 		case <-rate:
-
 			r.Faster()
-			//log.Printf("\nCurrent Rate: %d\n", r.Rate)
+		default:
+
 		}
 	}
 }

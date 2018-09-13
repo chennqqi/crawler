@@ -20,7 +20,7 @@ type tokenBucketRateLimiter struct {
 func NewTokenBucketRateLimiter(r int, b int) types.RateLimiter {
 	return &tokenBucketRateLimiter{
 		Limiter: rate.NewLimiter(rate.Limit(r), b),
-		Fastest: rate.Limit(30),
+		Fastest: rate.Limit(40),
 		Slowest: rate.Limit(0.2),
 	}
 }
@@ -32,7 +32,6 @@ func (lim *tokenBucketRateLimiter) Run() {
 		case <-ticker:
 
 			lim.Faster()
-			//log.Printf("\nCurrent Rate: %d\n", lim.RateValue())
 		default:
 		}
 	}
@@ -57,7 +56,7 @@ func (lim *tokenBucketRateLimiter) Slower() {
 		return
 	}
 
-	lim.Limiter.SetLimit(lim.Limiter.Limit() - 1)
+	lim.Limiter.SetLimit(lim.Limiter.Limit() - 0.1)
 }
 
 func (lim *tokenBucketRateLimiter) Wait() {
@@ -67,6 +66,10 @@ func (lim *tokenBucketRateLimiter) Wait() {
 	}
 }
 
-func (lim *tokenBucketRateLimiter) RateValue() uint {
-	return uint(lim.Limiter.Limit())
+func (lim *tokenBucketRateLimiter) QPS() float64 {
+	return float64(lim.Limiter.Limit())
+}
+
+func (lim *tokenBucketRateLimiter) Rate() uint {
+	return uint(1000 / lim.Limiter.Limit())
 }

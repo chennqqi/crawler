@@ -27,8 +27,7 @@ var DefaultSimpleEngine = SimpleEngine{
 	Scheduler:     &scheduler.SimpleScheduler{},
 	PrintNotifier: &notifier.ConsolePrintNotifier{},
 	RateLimiter:   ratelimiter.NewSimpleRateLimiter(50),
-	//RateLimiter: ratelimiter.NewTokenBucketRateLimiter(20, 100),
-	WorkerCount: 100,
+	WorkerCount:   100,
 }
 
 // Run is the first step to startup the engine.
@@ -92,7 +91,7 @@ func (e SimpleEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 	body, err := fetcher.Fetch(r.Url, e.RateLimiter)
 	if err != nil {
 		log.Printf("\nFetcher: error fetching url %s: %v\n", r.Url, err)
-		log.Printf("Current Rate: %d\n", e.RateLimiter.RateValue())
+		log.Printf("Current Rate: %d\n", e.RateLimiter.Rate())
 		return types.ParseResult{}, err
 	}
 

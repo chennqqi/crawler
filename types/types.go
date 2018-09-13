@@ -22,7 +22,8 @@ type RateLimiter interface {
 	Faster()
 	Slower()
 	Wait()
-	RateValue() uint
+	QPS() float64
+	Rate() uint
 }
 
 type Runner interface {
@@ -76,11 +77,11 @@ type NotifyData struct {
 	FlightCount  int
 	FlightSum    int
 	Progress     float32
-	CurrentRate  uint
+	QPS          float64
 }
 
 func (o NotifyData) String() string {
-	return fmt.Sprintf("%v Airport #%d/%d (%s->%s): items %d; flight: %d/%.2f%% Rate:%d",
-		o.Elapsed, o.AirportIndex, o.AirportTotal, o.Airport.DepCode, o.Airport.ArrCode,
-		o.FlightCount, o.FlightSum, o.Progress, o.CurrentRate)
+	return fmt.Sprintf("%v [Airport #%d/%d %.2f%%](%s->%s): [items %d/%d Rate:%.2fqps]",
+		o.Elapsed, o.AirportIndex, o.AirportTotal, o.Progress, o.Airport.DepCode, o.Airport.ArrCode,
+		o.FlightSum, o.FlightCount, o.QPS)
 }
