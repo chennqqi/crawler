@@ -68,15 +68,15 @@ func (e SimpleEngine) Run() {
 		case result := <-out:
 			// this is only print to console/http client,
 			// not save to database.
-			persist.Print(result, e.PrintNotifier, e.RateLimiter)
+			//persist.Print(result, e.PrintNotifier, e.RateLimiter)
 
 			// this is save to database
-			//go func() {
-			//	data, err := persist.Save(result, e.PrintNotifier)
-			//	if err != nil {
-			//		log.Printf("\nsave %v error: %v\n", data, err)
-			//	}
-			//}()
+			go func() {
+				data, err := persist.Save(result, e.PrintNotifier, e.RateLimiter)
+				if err != nil {
+					log.Printf("\nsave %v error: %v\n", data, err)
+				}
+			}()
 
 		case <-timer.C:
 			fmt.Println("Read timeout, exit the program.")
