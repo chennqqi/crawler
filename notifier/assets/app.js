@@ -45,10 +45,13 @@ ws.onmessage = function(evt) {
 
     // console.log(evt.data);
 
-    if (data.length > 200) {
-        data.shift();
+    var packet = filterQPS(evt.data)
+    if (packet) {
+        if (data.length > 200) {
+            data.shift();
+        }
+        data.push(packet);
     }
-    data.push(filter(evt.data));
 
     myChart.setOption({
         series: [{
@@ -60,10 +63,26 @@ ws.onerror = function(evt) {
     console.error(evt);
 };
 
-function filter(message) {
+function filterProgress(message) {
     var data = JSON.parse(message);
-    return {
-        name: "abc",
-        value: [ data["Elapsed"], data["AirportIndex"] ]
+    if (data.Type == "v1") {
+        return {
+            name: "progress",
+            value: [ data["Elapsed"], data["AirportIndex"] ]
+        }
+    } else {
+        return null;
+    }
+}
+
+function filterQPS(message) {
+    var data = JSON.parse(message)
+    if (data.Type == "v2") {
+        return {
+            name: "qps",
+            value: [ data["Elapsed"], data["QPS"] ]
+        }
+    } else {
+        return null;
     }
 }

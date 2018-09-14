@@ -19,6 +19,7 @@ type HttpPrintNotifier struct {
 	printChan chan types.NotifyData
 	running   bool
 	sync.Mutex
+	RateLimiter types.RateLimiter
 }
 
 func (o *HttpPrintNotifier) Print(data types.NotifyData) {
@@ -69,9 +70,28 @@ func (o *HttpPrintNotifier) Progress(w http.ResponseWriter, r *http.Request) {
 	conn, _ := upgrader.Upgrade(w, r, nil)
 	defer conn.Close()
 
+	ticker := time.Tick(1 * time.Second)
 	for {
-		notify := <-o.printChan
-		// send to client
-		conn.WriteJSON(notify)
+		select {
+		case notify := <-o.printChan:
+			// send to client
+			conn.WriteJSON(notify)
+		default:
+		}
+
+		select {
+		case <-ticker:
+			data := struct {
+				Type    string
+				Elapsed time.Duration
+				QPS     float64
+			}{
+				Type:    "v2",
+				Elapsed: time.Since(types.T1),
+				QPS:     o.RateLimiter.QPS(),
+			}
+			conn.WriteJSON(data)
+		default:
+		}
 	}
 }

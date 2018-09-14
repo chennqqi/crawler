@@ -14,6 +14,7 @@ type ConsolePrintNotifier struct {
 	printChan chan types.NotifyData
 	running   bool
 	sync.Mutex
+	RateLimiter types.RateLimiter
 }
 
 func (o *ConsolePrintNotifier) Print(data types.NotifyData) {
@@ -40,8 +41,26 @@ func (o *ConsolePrintNotifier) Run() {
 	}
 	o.Unlock()
 
+	//ticker := time.Tick(1 * time.Second)
 	for {
-		notify := <-o.printChan
-		fmt.Printf("\r%s", notify)
+		select {
+		case notify := <-o.printChan:
+			// send to client
+			fmt.Printf("\r%s", notify)
+		default:
+		}
+
+		//select {
+		//case <-ticker:
+		//	data := struct {
+		//		Type string
+		//		QPS  float64
+		//	}{
+		//		Type: "v2",
+		//		QPS:  o.RateLimiter.QPS(),
+		//	}
+		//	fmt.Printf("\r%s\n", data)
+		//default:
+		//}
 	}
 }

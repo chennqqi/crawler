@@ -46,6 +46,7 @@ func Print(result types.ParseResult, notifier types.PrintNotifier,
 	airportIndex++
 
 	data := types.NotifyData{
+		Type:         "v1",
 		Elapsed:      time.Since(types.T1),
 		Airport:      types.Airport{DepCode: result.RawParam.Dep, ArrCode: result.RawParam.Arr},
 		AirportIndex: airportIndex,
@@ -96,6 +97,7 @@ func Save(result types.ParseResult, notifier types.PrintNotifier, limiter types.
 	airportIndex++
 
 	data := types.NotifyData{
+		Type:         "v1",
 		Elapsed:      time.Since(types.T1),
 		Airport:      types.Airport{DepCode: result.RawParam.Dep, ArrCode: result.RawParam.Arr},
 		AirportIndex: airportIndex,

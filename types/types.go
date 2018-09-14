@@ -70,6 +70,7 @@ var (
 
 // Output represent output statistics
 type NotifyData struct {
+	Type         string
 	Elapsed      time.Duration
 	Airport      Airport
 	AirportIndex int

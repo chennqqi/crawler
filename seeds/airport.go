@@ -7,6 +7,8 @@ import (
 
 	"fmt"
 
+	"strings"
+
 	"github.com/champkeh/crawler/config"
 	"github.com/champkeh/crawler/types"
 	"github.com/champkeh/crawler/umetrip/parser"
@@ -70,7 +72,7 @@ type Config struct {
 }
 
 var JsonConfig Config = Config{
-	Date: "2018-09-16",
+	Date: "2018-09-18",
 }
 
 func init() {
@@ -85,17 +87,17 @@ func init() {
 	//}
 
 	// connect sql server
-	//db, err := sql.Open("sqlserver",
-	//	"sqlserver://sa:123456@localhost:1433?database=data&connection+timeout=10")
-	//if err != nil {
-	//	panic(err)
-	//}
-	//// create table to save result
-	//_, err = db.Exec("sp_createTable", sql.Named("tablename",
-	//	"Airline_"+strings.Replace(JsonConfig.Date, "-", "", -1)[0:6]))
-	//if err != nil {
-	//	panic(err)
-	//}
+	db, err := sql.Open("sqlserver",
+		"sqlserver://sa:123456@localhost:1433?database=data&connection+timeout=10")
+	if err != nil {
+		panic(err)
+	}
+	// create table to save result
+	_, err = db.Exec("sp_createTable", sql.Named("tablename",
+		"Airline_"+strings.Replace(JsonConfig.Date, "-", "", -1)[0:6]))
+	if err != nil {
+		panic(err)
+	}
 }
 
 func AirportRequestFilter(airports chan types.Airport) chan types.Request {
