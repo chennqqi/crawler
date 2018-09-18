@@ -7,16 +7,16 @@ import (
 
 	"fmt"
 
-	"strings"
+	"encoding/json"
+	"io/ioutil"
 
 	"github.com/champkeh/crawler/config"
 	"github.com/champkeh/crawler/types"
 	"github.com/champkeh/crawler/umetrip/parser"
-	_ "github.com/denisenkom/go-mssqldb"
 )
 
 var (
-	// 交叉连接之后的航线总数
+	// 交叉连接之后的航线总数，也就是请求总数
 	TotalAirports int
 )
 
@@ -36,7 +36,7 @@ func PullAirportList() (chan types.Airport, error) {
 				join dbo.Inf_AirportSTD b on a.CityCode != b.CityCode`)
 	err = row.Scan(&TotalAirports)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	// this channel is non-buffer channel, which means that send to this
@@ -71,43 +71,25 @@ type Config struct {
 	Date string `json:"date"`
 }
 
-var JsonConfig Config = Config{
-	Date: "2018-09-18",
-}
-
-func init() {
-	// read config file to get date
-	//content, err := ioutil.ReadFile("./config.json")
-	//if err != nil {
-	//	panic(err)
-	//}
-	//err = json.Unmarshal(content, &JsonConfig)
-	//if err != nil {
-	//	panic(err)
-	//}
-
-	// connect sql server
-	db, err := sql.Open("sqlserver",
-		"sqlserver://sa:123456@localhost:1433?database=data&connection+timeout=10")
-	if err != nil {
-		panic(err)
-	}
-	// create table to save result
-	_, err = db.Exec("sp_createTable", sql.Named("tablename",
-		"Airline_"+strings.Replace(JsonConfig.Date, "-", "", -1)[0:6]))
-	if err != nil {
-		panic(err)
-	}
-}
-
 func AirportRequestFilter(airports chan types.Airport) chan types.Request {
 
 	// because this channel is used for scheduler's in-channel, which will be snatched
 	// by 100 workers (goroutine), so set 100 buffer space is better.
 	requests := make(chan types.Request, 100)
 
+	// read config date
+	var config Config
+	contents, err := ioutil.ReadFile("./config.json")
+	if err != nil {
+		panic(err)
+	}
+	err = json.Unmarshal(contents, &config)
+	if err != nil {
+		panic(err)
+	}
+
 	go func() {
-		var date = JsonConfig.Date
+		var date = config.Date
 		for airport := range airports {
 			//date := "2018-09-09"
 

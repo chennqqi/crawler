@@ -5,11 +5,11 @@ import (
 
 	"strings"
 
-	"errors"
-
 	"fmt"
 
 	"regexp"
+
+	"errors"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/champkeh/crawler/types"
@@ -40,7 +40,7 @@ type FlightDetailData struct {
 	PreFlightState   string
 }
 
-func ParseDetail(contents []byte) types.ParseResult {
+func ParseDetail(contents []byte) (types.ParseResult, error) {
 	reader := bytes.NewReader(contents)
 	doc, err := goquery.NewDocumentFromReader(reader)
 	if err != nil {
@@ -60,10 +60,10 @@ func ParseDetail(contents []byte) types.ParseResult {
 			result.Items = append(result.Items, d)
 		}
 	} else {
-		panic(errors.New(fmt.Sprintf("该航班解析失败")))
+		return result, errors.New(fmt.Sprintf("解析该航班出错: fly_box数量异常: %d", flyBoxes.Length()))
 	}
 
-	return result
+	return result, nil
 }
 
 func parseSingleFlight(doc *goquery.Document) FlightDetailData {
@@ -93,12 +93,12 @@ func parseSingleFlight(doc *goquery.Document) FlightDetailData {
 	// 前序航班
 	if first.Find(".f_tit div").Is("div") {
 		text := first.Find(".f_tit div").Text()
-		info := ParsePreFlightInfo(text)
-
-		detail.PreFlightNo = info[0]
-		detail.PreFlightDepCode = info[1]
-		detail.PreFlightArrCode = info[2]
-		detail.PreFlightState = info[3]
+		if info := ParsePreFlightInfo(text); info != nil {
+			detail.PreFlightNo = info[0]
+			detail.PreFlightDepCode = info[1]
+			detail.PreFlightArrCode = info[2]
+			detail.PreFlightState = info[3]
+		}
 	}
 
 	second := flyBoxes.Eq(1)
@@ -169,12 +169,12 @@ func parseMultiFlight(doc *goquery.Document) [3]FlightDetailData {
 	// 前序航班
 	if first.Find(".f_tit div").Is("div") {
 		text := first.Find(".f_tit div").Text()
-		info := ParsePreFlightInfo(text)
-
-		details[0].PreFlightNo = info[0]
-		details[0].PreFlightDepCode = info[1]
-		details[0].PreFlightArrCode = info[2]
-		details[0].PreFlightState = info[3]
+		if info := ParsePreFlightInfo(text); info != nil {
+			details[0].PreFlightNo = info[0]
+			details[0].PreFlightDepCode = info[1]
+			details[0].PreFlightArrCode = info[2]
+			details[0].PreFlightState = info[3]
+		}
 	}
 
 	// second segment
@@ -199,12 +199,12 @@ func parseMultiFlight(doc *goquery.Document) [3]FlightDetailData {
 	// 前序航班
 	if second.Find(".f_tit div").Is("div") {
 		text := second.Find(".f_tit div").Text()
-		info := ParsePreFlightInfo(text)
-
-		details[1].PreFlightNo = info[0]
-		details[1].PreFlightDepCode = info[1]
-		details[1].PreFlightArrCode = info[2]
-		details[1].PreFlightState = info[3]
+		if info := ParsePreFlightInfo(text); info != nil {
+			details[1].PreFlightNo = info[0]
+			details[1].PreFlightDepCode = info[1]
+			details[1].PreFlightArrCode = info[2]
+			details[1].PreFlightState = info[3]
+		}
 	}
 
 	// third segment
@@ -235,6 +235,10 @@ func ParseTime(mask string) string {
 	var re = `graphic\.do\?str=([^&]+)&`
 	match := regexp.MustCompile(re).FindStringSubmatch(mask)
 
+	if len(match) <= 1 {
+		return ""
+	}
+
 	return match[1]
 }
 
@@ -259,6 +263,10 @@ func ParseDate(raw string) string {
 func ParsePreFlightInfo(text string) []string {
 	var re = `前序航班([^[]+)\[([A-Z]+)到([A-Z]+)\]，(.+)`
 	match := regexp.MustCompile(re).FindStringSubmatch(text)
+
+	if len(match) <= 1 {
+		return nil
+	}
 
 	return match[1:]
 }

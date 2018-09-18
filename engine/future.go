@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"github.com/champkeh/crawler/fetcher"
+	"github.com/champkeh/crawler/notifier"
 	"github.com/champkeh/crawler/persist"
+	"github.com/champkeh/crawler/scheduler"
 	"github.com/champkeh/crawler/seeds"
 	"github.com/champkeh/crawler/types"
 )
@@ -19,13 +21,22 @@ type FutureEngine struct {
 	WorkerCount   int
 }
 
+var DefaultFutureEngine = FutureEngine{
+	Scheduler: &scheduler.SimpleScheduler{},
+	PrintNotifier: &notifier.ConsolePrintNotifier{
+		RateLimiter: rateLimiter,
+	},
+	RateLimiter: rateLimiter,
+	WorkerCount: 100,
+}
+
 // Setup is the first step to startup the engine.
 // this is used to fetch the first batch flight list data
 // only once every day, and save result to database
 // when completed this will exit and should run after 24 hour(e.g. tomorrow)
 func (e FutureEngine) Run() {
 	// generate airport seed
-	flightlist, err := seeds.PullFlightListAt("2018-09-13")
+	flightlist, err := seeds.PullFlightListAt("2018-09-18")
 	if err != nil {
 		panic(err)
 	}
@@ -44,7 +55,7 @@ func (e FutureEngine) Run() {
 	}
 
 	// run the print-notifier
-	go e.PrintNotifier.Run()
+	//go e.PrintNotifier.Run()
 
 	// run the rate-limiter
 	go e.RateLimiter.Run()
@@ -59,15 +70,18 @@ func (e FutureEngine) Run() {
 		case result := <-out:
 			// this is only print to console/http client,
 			// not save to database.
-			persist.Print(result, e.PrintNotifier, e.RateLimiter)
+			//persist.Print(result, e.PrintNotifier, e.RateLimiter)
+			//for _, item := range result.Items {
+			//	fmt.Println(item)
+			//}
 
 			// this is save to database
-			//go func() {
-			//	data, err := persist.Save(result, e.PrintNotifier, e.RateLimiter)
-			//	if err != nil {
-			//		log.Printf("\nsave %v error: %v\n", data, err)
-			//	}
-			//}()
+			go func() {
+				data, err := persist.SaveDetail(result, e.PrintNotifier, e.RateLimiter)
+				if err != nil {
+					log.Printf("\nsave %v error: %v\n", data, err)
+				}
+			}()
 
 		case <-timer.C:
 			fmt.Println("Read timeout, exit the program.")
@@ -86,7 +100,10 @@ func (e FutureEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 		return types.ParseResult{}, err
 	}
 
-	result := r.ParserFunc(body)
+	result, err := r.ParserFunc(body)
+	if err != nil {
+		log.Printf("\n%s:%s %s\n", r.RawParam.Date, r.RawParam.Fno, err)
+	}
 	result.RawParam = r.RawParam
 
 	return result, nil

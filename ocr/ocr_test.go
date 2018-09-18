@@ -1,6 +1,7 @@
 package ocr
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -29,4 +30,13 @@ func TestResolve(t *testing.T) {
 			t.Errorf("resolve %s got %s; expected %s", c.code, actual, c.expected)
 		}
 	}
+}
+
+func TestCodeToTime(t *testing.T) {
+	s, err := CodeToTime("OCNl2Ll92Dd8W89/tG4Q==")
+	if err != nil {
+		t.Errorf("convert fail: %v", err)
+	}
+
+	fmt.Printf("s = %q\n", s)
 }

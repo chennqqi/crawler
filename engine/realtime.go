@@ -1,5 +1,9 @@
 package engine
 
+/*
+ * This engine is used to crawling the real-time flight data
+ */
+
 import (
 	"log"
 
@@ -15,14 +19,14 @@ import (
 	"github.com/champkeh/crawler/types"
 )
 
-type SimpleEngine struct {
+type RealTimeEngine struct {
 	Scheduler     types.Scheduler
 	PrintNotifier types.PrintNotifier
 	RateLimiter   types.RateLimiter
 	WorkerCount   int
 }
 
-var DefaultSimpleEngine = SimpleEngine{
+var DefaultRealTimeEngine = RealTimeEngine{
 	Scheduler: &scheduler.SimpleScheduler{},
 	PrintNotifier: &notifier.ConsolePrintNotifier{
 		RateLimiter: rateLimiter,
@@ -31,7 +35,10 @@ var DefaultSimpleEngine = SimpleEngine{
 	WorkerCount: 100,
 }
 
-func (e SimpleEngine) Run() {
+// Run is the first step to startup the engine.
+// this is used to fetch the first batch flight list data
+// only once every day, and save result to database
+func (e RealTimeEngine) Run() {
 	// generate airport seed
 	airports, err := seeds.PullAirportList()
 	if err != nil {
@@ -45,6 +52,9 @@ func (e SimpleEngine) Run() {
 
 	// configure scheduler's out channel, has 100 space buffer channel
 	out := make(chan types.ParseResult, 100)
+
+	// run proxy fetcher
+	//proxyChan := proxy.Run()
 
 	// create fetch worker
 	for i := 0; i < e.WorkerCount; i++ {
@@ -84,9 +94,16 @@ func (e SimpleEngine) Run() {
 	}
 }
 
-func (e SimpleEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
+func (e RealTimeEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 	//log.Printf("Fetching %s", r.Url)
 
+	//var proxyIP types2.ProxyIP
+	//select {
+	//case proxyIP = <-cacheProxy:
+	//case proxyIP = <-proxyIPS:
+	//}
+
+	//body, err := fetcher.FetchWithProxy(r.Url, e.RateLimiter, proxyIP)
 	body, err := fetcher.Fetch(r.Url, e.RateLimiter)
 	if err != nil {
 		log.Printf("\nFetcher: error fetching url %s: %v\n", r.Url, err)
@@ -94,13 +111,17 @@ func (e SimpleEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 		return types.ParseResult{}, err
 	}
 
+	//go func() {
+	//	cacheProxy <- proxyIP
+	//	fmt.Printf("len(cacheProxy)=%d len(proxyIPS)=%d\n", len(cacheProxy), len(proxyIPS))
+	//}()
 	result, _ := r.ParserFunc(body)
 	result.RawParam = r.RawParam
 
 	return result, nil
 }
 
-func (e SimpleEngine) CreateFetchWorker(in chan types.Request, out chan types.ParseResult) {
+func (e RealTimeEngine) CreateFetchWorker(in chan types.Request, out chan types.ParseResult) {
 	go func() {
 		for {
 			request := <-in

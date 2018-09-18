@@ -1,19 +1,48 @@
 package ocr
 
 import (
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
+
+	"github.com/champkeh/crawler/config"
+	_ "github.com/denisenkom/go-mssqldb"
 )
 
 const base64header string = "data:image/png;base64,"
 
+var (
+	db *sql.DB
+)
+
+func init() {
+	var err error
+
+	// connect sql server
+	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=10",
+		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightData")
+	db, err = sql.Open("sqlserver", connstr)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func CodeToTime(code string) (string, error) {
+	query := fmt.Sprintf("select time from dbo.code_to_time where code = '%s'", code)
+	var timestr string
+	err := db.QueryRow(query).Scan(&timestr)
+	if err != nil {
+		return "", err
+	}
+	return timestr, nil
+}
+
 func Resolve(code string) (string, error) {
 	url := ctorURL(code)
-
 	base64str := convertToBase64(url)
 
 	result, err := verify(base64str)

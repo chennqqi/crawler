@@ -28,7 +28,7 @@ type FlightListData struct {
 }
 
 // ParseList parse flight list data
-func ParseList(contents []byte) types.ParseResult {
+func ParseList(contents []byte) (types.ParseResult, error) {
 	matches := listReCompile.FindAllSubmatch(contents, -1)
 
 	result := types.ParseResult{}
@@ -44,5 +44,5 @@ func ParseList(contents []byte) types.ParseResult {
 			State:         string(m[8]),
 		})
 	}
-	return result
+	return result, nil
 }

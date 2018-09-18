@@ -8,6 +8,7 @@ import (
 
 	"strings"
 
+	"github.com/champkeh/crawler/config"
 	"github.com/champkeh/crawler/types"
 	"github.com/champkeh/crawler/umetrip/parser"
 )
@@ -17,11 +18,26 @@ type Flight struct {
 	FlightDate string
 }
 
+var (
+	// 交叉连接之后的航线总数
+	TotalFlight int
+)
+
 // date format: 2018-09-10
 func PullFlightListAt(date string) (chan Flight, error) {
-	// connect sql
-	db, err := sql.Open("sqlserver",
-		"sqlserver://sa:123456@localhost:1433?database=data&connection+timeout=10")
+
+	// connect sql server
+	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=10",
+		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightData")
+	db, err := sql.Open("sqlserver", connstr)
+	if err != nil {
+		return nil, err
+	}
+
+	// query total airports to fetch
+	row := db.QueryRow(fmt.Sprintf("select count(*) from dbo.Airline_%s where date='%s'",
+		strings.Replace(date, "-", "", -1)[0:6], date))
+	err = row.Scan(&TotalFlight)
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +79,7 @@ func FlightRequestFilter(flights chan Flight) chan types.Request {
 
 	go func() {
 		for flight := range flights {
+			// 详情页
 			//http://www.umetrip.com/mskyweb/fs/fc.do?flightNo=MU3924&date=2018-09-13
 			url := fmt.Sprintf("http://www.umetrip.com/mskyweb/fs/fc.do?flightNo=%s&date=%s",
 				flight.FlightNo, flight.FlightDate)
@@ -70,6 +87,10 @@ func FlightRequestFilter(flights chan Flight) chan types.Request {
 			requests <- types.Request{
 				Url:        url,
 				ParserFunc: parser.ParseDetail,
+				RawParam: types.Param{
+					Date: flight.FlightDate,
+					Fno:  flight.FlightNo,
+				},
 			}
 		}
 

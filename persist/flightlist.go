@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/champkeh/crawler/config"
 	"github.com/champkeh/crawler/seeds"
 	"github.com/champkeh/crawler/types"
 	"github.com/champkeh/crawler/umetrip/parser"
@@ -21,10 +22,12 @@ var (
 )
 
 func init() {
-	// connect sql server
 	var err error
-	db, err = sql.Open("sqlserver",
-		"sqlserver://sa:123456@localhost:1433?database=data&connection+timeout=10")
+
+	// connect sql server
+	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=10",
+		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightData")
+	db, err = sql.Open("sqlserver", connstr)
 	if err != nil {
 		panic(err)
 	}
@@ -72,20 +75,30 @@ func Print(result types.ParseResult, notifier types.PrintNotifier,
 func Save(result types.ParseResult, notifier types.PrintNotifier, limiter types.RateLimiter) (
 	parser.FlightListData, error) {
 
+	//create table to save result
 	date := strings.Replace(result.RawParam.Date, "-", "", -1)[0:6]
-	var itemCount = 0
+	_, err := db.Exec("sp_createTable", sql.Named("tablename", "Airline_"+date))
+	if err != nil {
+		panic(err)
+	}
 
+	var itemCount = 0
 	for _, item := range result.Items {
 		data := item.(parser.FlightListData)
 		split := strings.Split(data.Airport, "/")
 
 		_, err := db.Exec("insert into [dbo].[Airline_" + date + "]" +
 			"(dep,arr,date,flightNo,flightName,flightState,depPlanTime,arrPlanTime,depActualTime," +
-			"arrActualTime,depPort,arrPort)" +
+			"arrActualTime,depPort,arrPort,createAt)" +
 			" values ('" + result.RawParam.Dep + "', '" + result.RawParam.Arr + "', '" + result.RawParam.Date +
-			"', '" + data.FlightNo + "', '" + data.FlightCompany + "', '" + data.State + "', '" + data.DepTimePlan +
-			"', '" + data.ArrTimePlan + "', '" + data.DepTimeActual + "', '" + data.ArrTimeActual +
-			"', '" + split[0] + "', '" + split[1] + "')")
+			"', '" + data.FlightNo + "', '" + data.FlightCompany + "', '" + data.State +
+			"', '" + result.RawParam.Date + " " + data.DepTimePlan +
+			"', '" + fixarrdate(result.RawParam.Date, data.DepTimePlan, data.ArrTimePlan) +
+			"', '" + strings.Replace(data.DepTimeActual, "-", "", -1) +
+			"', '" + strings.Replace(data.ArrTimeActual, "-", "", -1) +
+			"', '" + strings.Replace(split[0], "-", "", -1) +
+			"', '" + strings.Replace(split[1], "-", "", -1) +
+			"', '" + time.Now().Format("2006-01-02 15:04:05") + "')")
 		if err != nil {
 			return data, err
 		}
@@ -120,4 +133,16 @@ func Save(result types.ParseResult, notifier types.PrintNotifier, limiter types.
 	}
 
 	return parser.FlightListData{}, nil
+}
+
+func fixarrdate(date, deptime, arrtime string) string {
+	if arrtime >= deptime {
+		return date + " " + arrtime
+	} else {
+		parse, err := time.Parse("2006-01-02", date)
+		if err != nil {
+			panic(err)
+		}
+		return parse.Add(24*time.Hour).Format("2006-01-02") + " " + arrtime
+	}
 }

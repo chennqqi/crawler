@@ -33,6 +33,7 @@ type Runner interface {
 type Param struct {
 	Dep  string
 	Arr  string
+	Fno  string
 	Date string
 }
 
@@ -40,7 +41,7 @@ type Param struct {
 type Request struct {
 	RawParam   Param
 	Url        string
-	ParserFunc func([]byte) ParseResult
+	ParserFunc func([]byte) (ParseResult, error)
 }
 
 // ParseResult
