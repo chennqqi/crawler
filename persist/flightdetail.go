@@ -10,6 +10,9 @@ import (
 
 	"database/sql"
 
+	"regexp"
+
+	"github.com/champkeh/crawler/ocr"
 	"github.com/champkeh/crawler/seeds"
 	"github.com/champkeh/crawler/types"
 	"github.com/champkeh/crawler/umetrip/parser"
@@ -81,4 +84,22 @@ func SaveDetail(result types.ParseResult, notifier types.PrintNotifier, limiter 
 	}
 
 	return parser.FlightDetailData{}, nil
+}
+
+func parseTimeCode(code string) string {
+	// 查数据库
+	s, err := ocr.CodeToTime(code)
+	if err == nil {
+		// 数据库命中
+		return s
+	}
+
+	re := regexp.MustCompile(`\d{2}:\d{2}`)
+	resolve, err := ocr.Resolve(code)
+	if err == nil {
+		b := re.MatchString(resolve)
+		if b {
+			// 查询
+		}
+	}
 }
