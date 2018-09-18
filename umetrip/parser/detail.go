@@ -59,6 +59,8 @@ func ParseDetail(contents []byte) (types.ParseResult, error) {
 		for _, d := range details {
 			result.Items = append(result.Items, d)
 		}
+	} else if flyBoxes.Length() == 0 {
+		return result, nil
 	} else {
 		return result, errors.New(fmt.Sprintf("解析该航班出错: fly_box数量异常: %d", flyBoxes.Length()))
 	}

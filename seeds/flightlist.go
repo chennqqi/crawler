@@ -34,7 +34,7 @@ func PullFlightListAt(date string) (chan Flight, error) {
 		return nil, err
 	}
 
-	// query total airports to fetch
+	// query total flight to fetch
 	row := db.QueryRow(fmt.Sprintf("select count(*) from dbo.Airline_%s where date='%s'",
 		strings.Replace(date, "-", "", -1)[0:6], date))
 	err = row.Scan(&TotalFlight)
@@ -60,6 +60,7 @@ func PullFlightListAt(date string) (chan Flight, error) {
 			err := rows.Scan(&flight.FlightDate, &flight.FlightNo)
 			if err != nil {
 				log.Fatal(err)
+				continue
 			}
 
 			// this will blocked until it's value have been taken by others.
@@ -79,8 +80,7 @@ func FlightRequestFilter(flights chan Flight) chan types.Request {
 
 	go func() {
 		for flight := range flights {
-			// 详情页
-			//http://www.umetrip.com/mskyweb/fs/fc.do?flightNo=MU3924&date=2018-09-13
+			// 详情页url:http://www.umetrip.com/mskyweb/fs/fc.do?flightNo=MU3924&date=2018-09-13
 			url := fmt.Sprintf("http://www.umetrip.com/mskyweb/fs/fc.do?flightNo=%s&date=%s",
 				flight.FlightNo, flight.FlightDate)
 
@@ -93,11 +93,6 @@ func FlightRequestFilter(flights chan Flight) chan types.Request {
 				},
 			}
 		}
-
-		// can not close this channel, because this channel is used for scheduler's
-		// in-channel which the failed request (status code is 500) would resend to
-		// it to fetch again.
-		//close(requests)
 	}()
 
 	return requests

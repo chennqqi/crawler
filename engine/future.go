@@ -13,7 +13,10 @@ import (
 	"github.com/champkeh/crawler/types"
 )
 
-// this engine is used to fetch future flight data
+// FutureEngine
+//
+// 这个引擎用来抓取未来航班的详情数据(机型、前序航班信息、...)
+// 只需要抓取未来1天的数据即可，因为只有未来1天的航班有前序航班信息
 type FutureEngine struct {
 	Scheduler     types.Scheduler
 	PrintNotifier types.PrintNotifier
@@ -21,22 +24,26 @@ type FutureEngine struct {
 	WorkerCount   int
 }
 
+// DefaultFutureEngine
+//
+// FutureEngine 的默认实现
 var DefaultFutureEngine = FutureEngine{
 	Scheduler: &scheduler.SimpleScheduler{},
 	PrintNotifier: &notifier.ConsolePrintNotifier{
 		RateLimiter: rateLimiter,
 	},
+
+	// 采用全局的 rateLimiter
 	RateLimiter: rateLimiter,
 	WorkerCount: 100,
 }
 
-// Setup is the first step to startup the engine.
-// this is used to fetch the first batch flight list data
-// only once every day, and save result to database
-// when completed this will exit and should run after 24 hour(e.g. tomorrow)
+// Run 运行引擎
 func (e FutureEngine) Run() {
-	// generate airport seed
-	flightlist, err := seeds.PullFlightListAt("2018-09-18")
+	// 从未来航班列表中拉取要抓取的航班列表
+	// 因为要作为计划任务每天执行，所以日期使用明天
+	var date = time.Now().Add(24 * time.Hour).Format("2006-01-02")
+	flightlist, err := seeds.PullFlightListAt(date)
 	if err != nil {
 		panic(err)
 	}
@@ -55,7 +62,7 @@ func (e FutureEngine) Run() {
 	}
 
 	// run the print-notifier
-	//go e.PrintNotifier.Run()
+	go e.PrintNotifier.Run()
 
 	// run the rate-limiter
 	go e.RateLimiter.Run()
@@ -68,20 +75,15 @@ func (e FutureEngine) Run() {
 		// so, here use `select` to avoid this problem.
 		select {
 		case result := <-out:
-			// this is only print to console/http client,
-			// not save to database.
-			//persist.Print(result, e.PrintNotifier, e.RateLimiter)
-			//for _, item := range result.Items {
-			//	fmt.Println(item)
-			//}
+			persist.PrintDetail(result, e.PrintNotifier, e.RateLimiter)
 
 			// this is save to database
-			go func() {
-				data, err := persist.SaveDetail(result, e.PrintNotifier, e.RateLimiter)
-				if err != nil {
-					log.Printf("\nsave %v error: %v\n", data, err)
-				}
-			}()
+			//go func() {
+			//	data, err := persist.SaveDetail(result, e.PrintNotifier, e.RateLimiter)
+			//	if err != nil {
+			//		log.Printf("\nsave %v error: %v\n", data, err)
+			//	}
+			//}()
 
 		case <-timer.C:
 			fmt.Println("Read timeout, exit the program.")
@@ -92,7 +94,6 @@ func (e FutureEngine) Run() {
 }
 
 func (e FutureEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
-	//log.Printf("Fetching %s", r.Url)
 	body, err := fetcher.Fetch(r.Url, e.RateLimiter)
 	if err != nil {
 		log.Printf("\nFetcher: error fetching url %s: %v\n", r.Url, err)
@@ -102,7 +103,7 @@ func (e FutureEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 
 	result, err := r.ParserFunc(body)
 	if err != nil {
-		log.Printf("\n%s:%s %s\n", r.RawParam.Date, r.RawParam.Fno, err)
+		log.Printf("\n%s:%s 解析失败:%s\n", r.RawParam.Date, r.RawParam.Fno, err)
 	}
 	result.RawParam = r.RawParam
 

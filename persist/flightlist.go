@@ -24,7 +24,7 @@ var (
 func init() {
 	var err error
 
-	// connect sql server
+	// 连接到 FlightData 数据库
 	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=10",
 		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightData")
 	db, err = sql.Open("sqlserver", connstr)
@@ -92,7 +92,7 @@ func Save(result types.ParseResult, notifier types.PrintNotifier, limiter types.
 			"arrActualTime,depPort,arrPort,createAt)" +
 			" values ('" + result.RawParam.Dep + "', '" + result.RawParam.Arr + "', '" + result.RawParam.Date +
 			"', '" + data.FlightNo + "', '" + data.FlightCompany + "', '" + data.State +
-			"', '" + result.RawParam.Date + " " + data.DepTimePlan +
+			"', '" + (result.RawParam.Date + " " + data.DepTimePlan) +
 			"', '" + fixarrdate(result.RawParam.Date, data.DepTimePlan, data.ArrTimePlan) +
 			"', '" + strings.Replace(data.DepTimeActual, "-", "", -1) +
 			"', '" + strings.Replace(data.ArrTimeActual, "-", "", -1) +

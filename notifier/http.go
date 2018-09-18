@@ -86,7 +86,7 @@ func (o *HttpPrintNotifier) Progress(w http.ResponseWriter, r *http.Request) {
 				Elapsed time.Duration
 				QPS     float64
 			}{
-				Type:    "v2",
+				Type:    "v2", //todo: fix this to list or detail
 				Elapsed: time.Since(types.T1),
 				QPS:     o.RateLimiter.QPS(),
 			}

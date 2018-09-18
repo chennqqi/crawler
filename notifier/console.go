@@ -50,17 +50,5 @@ func (o *ConsolePrintNotifier) Run() {
 		default:
 		}
 
-		//select {
-		//case <-ticker:
-		//	data := struct {
-		//		Type string
-		//		QPS  float64
-		//	}{
-		//		Type: "v2",
-		//		QPS:  o.RateLimiter.QPS(),
-		//	}
-		//	fmt.Printf("\r%s\n", data)
-		//default:
-		//}
 	}
 }

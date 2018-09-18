@@ -78,12 +78,20 @@ type NotifyData struct {
 	AirportTotal int
 	FlightCount  int
 	FlightSum    int
+	FlightTotal  int
 	Progress     float32
 	QPS          float64
 }
 
 func (o NotifyData) String() string {
-	return fmt.Sprintf("%v [Airport #%d/%d %.2f%%](%s->%s): [items %d/%d Rate:%.2fqps]",
-		o.Elapsed, o.AirportIndex, o.AirportTotal, o.Progress, o.Airport.DepCode, o.Airport.ArrCode,
-		o.FlightSum, o.FlightCount, o.QPS)
+	if o.Type == "detail" {
+		return fmt.Sprintf("%v [Flight #%d/%d/%d %.2f%%] [Rate:%.2fqps]",
+			o.Elapsed, o.FlightSum, o.FlightTotal, o.FlightCount, o.Progress, o.QPS)
+	} else if o.Type == "list" {
+		return fmt.Sprintf("%v [Airport #%d/%d %.2f%%](%s->%s): [items %d/%d Rate:%.2fqps]",
+			o.Elapsed, o.AirportIndex, o.AirportTotal, o.Progress, o.Airport.DepCode, o.Airport.ArrCode,
+			o.FlightSum, o.FlightCount, o.QPS)
+	} else {
+		return fmt.Sprintf("type error:%s", o.Type)
+	}
 }
