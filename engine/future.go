@@ -42,8 +42,8 @@ var DefaultFutureEngine = FutureEngine{
 func (e FutureEngine) Run() {
 	// 从未来航班列表中拉取要抓取的航班列表
 	// 因为要作为计划任务每天执行，所以日期使用明天
-	var date = time.Now().Add(24 * time.Hour).Format("2006-01-02")
-	flightlist, err := seeds.PullFlightListAt(date)
+	//var date = time.Now().Add(-10 * 24 * time.Hour).Format("2006-01-02")
+	flightlist, err := seeds.PullFlightListAt("2018-09-22")
 	if err != nil {
 		panic(err)
 	}
@@ -75,15 +75,15 @@ func (e FutureEngine) Run() {
 		// so, here use `select` to avoid this problem.
 		select {
 		case result := <-out:
-			persist.PrintDetail(result, e.PrintNotifier, e.RateLimiter)
+			//persist.PrintDetail(result, e.PrintNotifier, e.RateLimiter)
 
 			// this is save to database
-			//go func() {
-			//	data, err := persist.SaveDetail(result, e.PrintNotifier, e.RateLimiter)
-			//	if err != nil {
-			//		log.Printf("\nsave %v error: %v\n", data, err)
-			//	}
-			//}()
+			go func() {
+				data, err := persist.SaveDetail(result, e.PrintNotifier, e.RateLimiter)
+				if err != nil {
+					log.Printf("\nsave %v error: %v\n", data, err)
+				}
+			}()
 
 		case <-timer.C:
 			fmt.Println("Read timeout, exit the program.")

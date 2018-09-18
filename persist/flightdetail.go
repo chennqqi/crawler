@@ -14,6 +14,7 @@ import (
 
 	"time"
 
+	"github.com/champkeh/crawler/config"
 	"github.com/champkeh/crawler/ocr"
 	"github.com/champkeh/crawler/seeds"
 	"github.com/champkeh/crawler/types"
@@ -54,15 +55,26 @@ func PrintDetail(result types.ParseResult, notifier types.PrintNotifier,
 	}
 }
 
-func SaveDetail(result types.ParseResult, notifier types.PrintNotifier, limiter types.RateLimiter) (
-	parser.FlightDetailData, error) {
-
-	//create table to save result
-	date := strings.Replace(result.RawParam.Date, "-", "", -1)[0:6]
-	_, err := db.Exec("sp_createFutureTable", sql.Named("tablename", "FutureFlightData_"+date))
+func init() {
+	// 连接到 FlightData 数据库
+	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=10",
+		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightData")
+	db, err := sql.Open("sqlserver", connstr)
 	if err != nil {
 		panic(err)
 	}
+
+	var date = time.Now().Add(24 * time.Hour).Format("2006-01-02")
+	//create table to save result
+	date = strings.Replace(date, "-", "", -1)[0:6]
+	_, err = db.Exec("sp_createFutureTable", sql.Named("tablename", "FutureFlightData_"+date))
+	if err != nil {
+		panic(err)
+	}
+}
+
+func SaveDetail(result types.ParseResult, notifier types.PrintNotifier, limiter types.RateLimiter) (
+	parser.FlightDetailData, error) {
 
 	var itemCount = 0
 
@@ -70,23 +82,24 @@ func SaveDetail(result types.ParseResult, notifier types.PrintNotifier, limiter 
 		data := item.(parser.FlightDetailData)
 
 		// 解析起降时间
-		depPlanTime := parseTimeCode(data.DepPlanTime)
-		depActualTime := parseTimeCode(data.DepActualTime)
-		arrPlanTime := parseTimeCode(data.ArrPlanTime)
-		arrActualTime := parseTimeCode(data.ArrActualTime)
+		//depPlanTime := parseTimeCode(data.DepPlanTime)
+		//depActualTime := parseTimeCode(data.DepActualTime)
+		//arrPlanTime := parseTimeCode(data.ArrPlanTime)
+		//arrActualTime := parseTimeCode(data.ArrActualTime)
 
+		date := strings.Replace(result.RawParam.Date, "-", "", -1)[0:6]
 		_, err := db.Exec("insert into [dbo].[FutureFlightData_" + date + "]" +
-			"(flightNo,date,depCode,arrCode,depCity,arrCity,flightState,depPlanTime,depActualTime,arrPlanTime," +
-			"arrActualTime,mileage,duration,age,preFlightNo,preFlightState,preFlightDepCode,preFlightArrCode," +
+			"(flightNo,date,depCode,arrCode,depCity,arrCity,flightState,code1,code2,code3," +
+			"code4,mileage,duration,age,preFlightNo,preFlightState,preFlightDepCode,preFlightArrCode," +
 			"depWeather,arrWeather,depFlow,arrFlow)" +
 			" values ('" + data.FlightNo + "', '" + data.FlightDate +
 			"', '" + data.DepCode + "', '" + data.ArrCode +
 			"', '" + data.DepCity + "', '" + data.ArrCity +
 			"', '" + data.FlightState +
-			"', '" + timeToDatetime(data.FlightDate, depPlanTime, depPlanTime) +
-			"', '" + timeToDatetime(data.FlightDate, depPlanTime, depActualTime) +
-			"', '" + timeToDatetime(data.FlightDate, depPlanTime, arrPlanTime) +
-			"', '" + timeToDatetime(data.FlightDate, depPlanTime, arrActualTime) +
+			"', '" + data.DepPlanTime +
+			"', '" + data.DepActualTime +
+			"', '" + data.ArrPlanTime +
+			"', '" + data.ArrActualTime +
 			"', '" + data.Mileage + "', '" + data.Duration + "', '" + data.Age +
 			"', '" + data.PreFlightNo + "', '" + data.PreFlightState +
 			"', '" + data.PreFlightDepCode +

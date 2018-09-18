@@ -12,7 +12,7 @@ func TestSingleParseDetail(t *testing.T) {
 		t.Errorf("read test data fail: %v", err)
 	}
 
-	parseResult := ParseDetail(contents)
+	parseResult, err := ParseDetail(contents)
 	for _, result := range parseResult.Items {
 		fmt.Println(result)
 	}
@@ -24,7 +24,19 @@ func TestParseMultiDetail(t *testing.T) {
 		t.Errorf("read test data fail: %v", err)
 	}
 
-	parseResult := ParseDetail(contents)
+	parseResult, err := ParseDetail(contents)
+	for _, result := range parseResult.Items {
+		fmt.Println(result)
+	}
+}
+
+func TestParseSuperMultiDetail(t *testing.T) {
+	contents, err := ioutil.ReadFile("./testdata/ZH9746_2018-09-22.html")
+	if err != nil {
+		t.Errorf("read test data fail: %v", err)
+	}
+
+	parseResult, err := ParseDetail(contents)
 	for _, result := range parseResult.Items {
 		fmt.Println(result)
 	}

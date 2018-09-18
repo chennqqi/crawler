@@ -6,6 +6,7 @@ import (
 
 	"fmt"
 
+	"github.com/champkeh/crawler/config"
 	"github.com/champkeh/crawler/ocr"
 	_ "github.com/denisenkom/go-mssqldb"
 )
@@ -16,8 +17,11 @@ var (
 
 func init() {
 	var err error
-	db, err = sql.Open("sqlserver",
-		"sqlserver://sa:123456@localhost:1433?database=data&connection+timeout=10")
+
+	// 连接到 FlightData 数据库
+	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=10",
+		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightData")
+	db, err = sql.Open("sqlserver", connstr)
 	if err != nil {
 		panic(err)
 	}
@@ -25,10 +29,11 @@ func init() {
 
 func main() {
 
-	rows, err := db.Query(`select distinct arrActualTime from dbo.FutureFlightData_201809
-where arrActualTime not in (
+	rows, err := db.Query(`select distinct code3 from dbo.FutureFlightData_201809
+where code3 not in (
 select code from dbo.code_to_time
-)`)
+)
+`)
 	if err != nil {
 		panic(err)
 	}
