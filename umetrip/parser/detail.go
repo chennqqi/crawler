@@ -79,7 +79,7 @@ func parseSingleFlight(doc *goquery.Document) FlightDetailData {
 
 	tit := doc.Find(".tit")
 	detail.FlightNo = strings.TrimSpace(tit.Find("span b").Text())
-	detail.FlightState = strings.TrimSpace(tit.Find("div.reg").Text())
+	detail.FlightState = strings.TrimSpace(tit.Find("div.state").Text())
 
 	p_info := doc.Find(".p_info")
 	detail.Mileage = strings.TrimSpace(p_info.Find(".mileage span").Text())
@@ -132,8 +132,8 @@ func parseMultiFlight(doc *goquery.Document) [3]FlightDetailData {
 	details[1].FlightNo = strings.TrimSpace(tit.Find("span b").Text())
 	details[2].FlightNo = strings.TrimSpace(tit.Find("span b").Text())
 
-	details[0].FlightState = strings.TrimSpace(tit.Find("div.reg").Eq(0).Text())
-	details[1].FlightState = strings.TrimSpace(tit.Find("div.reg").Eq(1).Text())
+	details[0].FlightState = strings.TrimSpace(tit.Find("div.state div").Eq(0).Text())
+	details[1].FlightState = strings.TrimSpace(tit.Find("div.state div").Eq(1).Text())
 	// todo:第三段航班的状态需要判断
 	if details[0].FlightState != "到达" {
 		details[2].FlightState = details[0].FlightState
@@ -246,9 +246,9 @@ func parseSuperMultiFlight(doc *goquery.Document) [6]FlightDetailData {
 	details[4].FlightNo = strings.TrimSpace(tit.Find("span b").Text())
 	details[5].FlightNo = strings.TrimSpace(tit.Find("span b").Text())
 
-	details[0].FlightState = strings.TrimSpace(tit.Find("div.reg").Eq(0).Text())
-	details[1].FlightState = strings.TrimSpace(tit.Find("div.reg").Eq(1).Text())
-	details[2].FlightState = strings.TrimSpace(tit.Find("div.reg").Eq(2).Text())
+	details[0].FlightState = strings.TrimSpace(tit.Find("div.state div").Eq(0).Text())
+	details[1].FlightState = strings.TrimSpace(tit.Find("div.state div").Eq(1).Text())
+	details[2].FlightState = strings.TrimSpace(tit.Find("div.state div").Eq(2).Text())
 	// todo:第三段航班的状态需要判断
 	if details[0].FlightState != "到达" {
 		details[3].FlightState = details[0].FlightState

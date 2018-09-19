@@ -7,6 +7,9 @@ import (
 
 	"fmt"
 
+	"encoding/json"
+	"io/ioutil"
+
 	"github.com/champkeh/crawler/fetcher"
 	"github.com/champkeh/crawler/notifier"
 	"github.com/champkeh/crawler/persist"
@@ -31,7 +34,29 @@ var DefaultSimpleEngine = SimpleEngine{
 	WorkerCount: 100,
 }
 
+type DateConfig struct {
+	Date string `json:"date"`
+}
+
 func (e SimpleEngine) Run() {
+
+	contents, err := ioutil.ReadFile("./config.json")
+	if err != nil {
+		panic(err)
+	}
+	var config DateConfig
+	err = json.Unmarshal(contents, &config)
+	if err != nil {
+		panic(err)
+	}
+
+	start, err := time.Parse("2006-01-02", config.Date)
+	if err != nil {
+		panic(err)
+	}
+
+start:
+	date := start.Format("2006-01-02")
 	// generate airport seed
 	airports, err := seeds.PullAirportList()
 	if err != nil {
@@ -40,7 +65,7 @@ func (e SimpleEngine) Run() {
 
 	// configure scheduler's in channel
 	// this filter will generate tomorrow flight request
-	reqChannel := seeds.AirportRequestFilter(airports)
+	reqChannel := seeds.AirportRequestFilter(airports, date)
 	e.Scheduler.ConfigureRequestChan(reqChannel)
 
 	// configure scheduler's out channel, has 100 space buffer channel
@@ -57,6 +82,7 @@ func (e SimpleEngine) Run() {
 	go e.RateLimiter.Run()
 
 	timer := time.NewTimer(3 * time.Minute)
+	completed := make(chan bool)
 	for {
 		timer.Reset(3 * time.Minute)
 
@@ -66,27 +92,39 @@ func (e SimpleEngine) Run() {
 		case result := <-out:
 			// this is only print to console/http client,
 			// not save to database.
-			//persist.Print(result, e.PrintNotifier, e.RateLimiter)
+			//end := persist.Print(result, e.PrintNotifier, e.RateLimiter)
+			//if end {
+			//	close(reqChannel)
+			//	fmt.Println("begin next date")
+			//	time.Sleep(5 * time.Second)
+			//	completed <- true
+			//}
 
 			// this is save to database
 			go func() {
-				data, err := persist.Save(result, e.PrintNotifier, e.RateLimiter)
+				data, end, err := persist.Save(result, e.PrintNotifier, e.RateLimiter)
 				if err != nil {
 					log.Printf("\nsave %v error: %v\n", data, err)
+				}
+				if end {
+					close(reqChannel)
+					fmt.Println("begin next date")
+					time.Sleep(5 * time.Second)
+					completed <- true
 				}
 			}()
 
 		case <-timer.C:
-			fmt.Println("Read timeout, exit the program.")
-			return
+			start = start.Add(24 * time.Hour)
+			goto start
+		case <-completed:
+			start = start.Add(24 * time.Hour)
+			goto start
 		}
-
 	}
 }
 
 func (e SimpleEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
-	//log.Printf("Fetching %s", r.Url)
-
 	body, err := fetcher.Fetch(r.Url, e.RateLimiter)
 	if err != nil {
 		log.Printf("\nFetcher: error fetching url %s: %v\n", r.Url, err)
@@ -94,8 +132,12 @@ func (e SimpleEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 		return types.ParseResult{}, err
 	}
 
-	result, _ := r.ParserFunc(body)
-	result.RawParam = r.RawParam
+	result, err := r.ParserFunc(body)
+	if err != nil {
+		log.Printf("parse (%s:%s->%s) error: %v\n",
+			r.RawParam.Date, r.RawParam.Dep, r.RawParam.Arr, err)
+	}
+	result.Request = r
 
 	return result, nil
 }
@@ -103,7 +145,11 @@ func (e SimpleEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 func (e SimpleEngine) CreateFetchWorker(in chan types.Request, out chan types.ParseResult) {
 	go func() {
 		for {
-			request := <-in
+			request, ok := <-in
+			if ok == false {
+				// 结束goroutine
+				return
+			}
 			parseResult, err := e.fetchWorker(request)
 			if err != nil {
 				// fetch request failed, submit this request to scheduler to fetch

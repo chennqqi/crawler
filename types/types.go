@@ -46,8 +46,8 @@ type Request struct {
 
 // ParseResult
 type ParseResult struct {
-	RawParam Param
-	Items    []interface{}
+	Request Request
+	Items   []interface{}
 }
 
 func NilParser(contents []byte) ParseResult {
@@ -73,6 +73,7 @@ var (
 type NotifyData struct {
 	Type         string
 	Elapsed      time.Duration
+	Date         string
 	Airport      Airport
 	AirportIndex int
 	AirportTotal int
@@ -85,11 +86,11 @@ type NotifyData struct {
 
 func (o NotifyData) String() string {
 	if o.Type == "detail" {
-		return fmt.Sprintf("%v [Flight #%d/%d/%d %.2f%%] [Rate:%.2fqps]",
-			o.Elapsed, o.FlightSum, o.FlightTotal, o.FlightCount, o.Progress, o.QPS)
+		return fmt.Sprintf("%v [Flight %s #%d/%d/%d %.2f%%] [Rate:%.2fqps]",
+			o.Elapsed, o.Date, o.FlightSum, o.FlightTotal, o.FlightCount, o.Progress, o.QPS)
 	} else if o.Type == "list" {
-		return fmt.Sprintf("%v [Airport #%d/%d %.2f%%](%s->%s): [items %d/%d Rate:%.2fqps]",
-			o.Elapsed, o.AirportIndex, o.AirportTotal, o.Progress, o.Airport.DepCode, o.Airport.ArrCode,
+		return fmt.Sprintf("%v [Airport %s #%d/%d %.2f%%](%s->%s): [items %d/%d Rate:%.2fqps]",
+			o.Elapsed, o.Date, o.AirportIndex, o.AirportTotal, o.Progress, o.Airport.DepCode, o.Airport.ArrCode,
 			o.FlightSum, o.FlightCount, o.QPS)
 	} else {
 		return fmt.Sprintf("type error:%s", o.Type)

@@ -11,6 +11,7 @@ import (
 	"github.com/champkeh/crawler/config"
 	"github.com/champkeh/crawler/types"
 	"github.com/champkeh/crawler/umetrip/parser"
+	_ "github.com/denisenkom/go-mssqldb"
 )
 
 type Flight struct {
@@ -27,7 +28,7 @@ var (
 func PullFlightListAt(date string) (chan Flight, error) {
 
 	// connect sql server
-	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=10",
+	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=60",
 		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightData")
 	db, err := sql.Open("sqlserver", connstr)
 	if err != nil {

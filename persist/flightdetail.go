@@ -8,10 +8,6 @@ import (
 
 	"database/sql"
 
-	"regexp"
-
-	"log"
-
 	"time"
 
 	"github.com/champkeh/crawler/config"
@@ -36,6 +32,7 @@ func PrintDetail(result types.ParseResult, notifier types.PrintNotifier,
 	data := types.NotifyData{
 		Type:        "detail",
 		Elapsed:     time.Since(types.T1),
+		Date:        result.Request.RawParam.Date,
 		FlightCount: itemCount,
 		FlightSum:   flightSum,
 		FlightTotal: seeds.TotalFlight,
@@ -56,18 +53,11 @@ func PrintDetail(result types.ParseResult, notifier types.PrintNotifier,
 }
 
 func init() {
+	var err error
 	// 连接到 FlightData 数据库
-	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=10",
+	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=60",
 		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightData")
-	db, err := sql.Open("sqlserver", connstr)
-	if err != nil {
-		panic(err)
-	}
-
-	var date = time.Now().Add(24 * time.Hour).Format("2006-01-02")
-	//create table to save result
-	date = strings.Replace(date, "-", "", -1)[0:6]
-	_, err = db.Exec("sp_createFutureTable", sql.Named("tablename", "FutureFlightData_"+date))
+	db, err = sql.Open("sqlserver", connstr)
 	if err != nil {
 		panic(err)
 	}
@@ -76,22 +66,29 @@ func init() {
 func SaveDetail(result types.ParseResult, notifier types.PrintNotifier, limiter types.RateLimiter) (
 	parser.FlightDetailData, error) {
 
+	// 确保数据表存在
+	date := strings.Replace(result.Request.RawParam.Date, "-", "", -1)[0:6]
+	_, err := db.Exec("sp_createFutureDetailTable", sql.Named("tablename", "FutureDetail_"+date))
+	if err != nil {
+		panic(err)
+	}
+
 	var itemCount = 0
 
 	for _, item := range result.Items {
 		data := item.(parser.FlightDetailData)
 
 		// 解析起降时间
-		//depPlanTime := parseTimeCode(data.DepPlanTime)
-		//depActualTime := parseTimeCode(data.DepActualTime)
-		//arrPlanTime := parseTimeCode(data.ArrPlanTime)
-		//arrActualTime := parseTimeCode(data.ArrActualTime)
+		depPlanTime := parseTimeCode(data.DepPlanTime)
+		depActualTime := parseTimeCode(data.DepActualTime)
+		arrPlanTime := parseTimeCode(data.ArrPlanTime)
+		arrActualTime := parseTimeCode(data.ArrActualTime)
 
-		date := strings.Replace(result.RawParam.Date, "-", "", -1)[0:6]
 		_, err := db.Exec("insert into [dbo].[FutureFlightData_" + date + "]" +
 			"(flightNo,date,depCode,arrCode,depCity,arrCity,flightState,code1,code2,code3," +
-			"code4,mileage,duration,age,preFlightNo,preFlightState,preFlightDepCode,preFlightArrCode," +
-			"depWeather,arrWeather,depFlow,arrFlow)" +
+			"code4,depPlanTime,depActualTime,arrPlanTime,arrActualTime,mileage,duration,age," +
+			"preFlightNo,preFlightState,preFlightDepCode,preFlightArrCode," +
+			"depWeather,arrWeather,depFlow,arrFlow,createAt)" +
 			" values ('" + data.FlightNo + "', '" + data.FlightDate +
 			"', '" + data.DepCode + "', '" + data.ArrCode +
 			"', '" + data.DepCity + "', '" + data.ArrCity +
@@ -100,12 +97,17 @@ func SaveDetail(result types.ParseResult, notifier types.PrintNotifier, limiter 
 			"', '" + data.DepActualTime +
 			"', '" + data.ArrPlanTime +
 			"', '" + data.ArrActualTime +
+			"', '" + timeToDatetime(data.FlightDate, depPlanTime, depPlanTime) +
+			"', '" + timeToDatetime(data.FlightDate, depPlanTime, depActualTime) +
+			"', '" + timeToDatetime(data.FlightDate, depPlanTime, arrPlanTime) +
+			"', '" + timeToDatetime(data.FlightDate, depPlanTime, arrActualTime) +
 			"', '" + data.Mileage + "', '" + data.Duration + "', '" + data.Age +
 			"', '" + data.PreFlightNo + "', '" + data.PreFlightState +
 			"', '" + data.PreFlightDepCode +
 			"', '" + data.PreFlightArrCode +
 			"', '" + data.DepWeather + "', '" + data.ArrWeather +
-			"', '" + data.DepFlow + "', '" + data.ArrFlow + "')")
+			"', '" + data.DepFlow + "', '" + data.ArrFlow +
+			"', '" + time.Now().Format("2006-01-02 15:04:05") + "')")
 		if err != nil {
 			return data, err
 		}
@@ -118,6 +120,7 @@ func SaveDetail(result types.ParseResult, notifier types.PrintNotifier, limiter 
 	data := types.NotifyData{
 		Type:        "detail",
 		Elapsed:     time.Since(types.T1),
+		Date:        result.Request.RawParam.Date,
 		FlightCount: itemCount,
 		FlightSum:   flightSum,
 		FlightTotal: seeds.TotalFlight,
@@ -142,33 +145,12 @@ func SaveDetail(result types.ParseResult, notifier types.PrintNotifier, limiter 
 func parseTimeCode(code string) string {
 	// 查数据库
 	s, err := ocr.CodeToTime(code)
-	if err == nil {
+	if err != nil {
 		// 数据库命中
-		return s
+		return ""
 	}
 
-	// 说明数据库不存在该code
-	re := regexp.MustCompile(`[0-9\-]{2}:[0-9\-]{2}`)
-	resolve, err := ocr.Resolve(code)
-	if err == nil {
-		// 解析成功
-		b := re.MatchString(resolve)
-		if b {
-			// 写入到数据库
-			go func() {
-				_, err := db.Exec("insert into dbo.code_to_time(code,time) values('" + code + "','" + resolve + "')")
-				if err != nil {
-					log.Printf("save resolve result(%s:%s) to database fail: %v", code, resolve, err)
-				}
-			}()
-
-			return resolve
-		}
-	}
-
-	// 解析失败
-	log.Printf("resolve %s failed: %v\n", code, err)
-	return ""
+	return s
 }
 
 func timeToDatetime(date, deptime, arrtime string) string {
