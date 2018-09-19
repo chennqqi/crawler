@@ -84,7 +84,7 @@ func SaveDetail(result types.ParseResult, notifier types.PrintNotifier, limiter 
 		arrPlanTime := parseTimeCode(data.ArrPlanTime)
 		arrActualTime := parseTimeCode(data.ArrActualTime)
 
-		_, err := db.Exec("insert into [dbo].[FutureFlightData_" + date + "]" +
+		_, err := db.Exec("insert into [dbo].[FutureDetail_" + date + "]" +
 			"(flightNo,date,depCode,arrCode,depCity,arrCity,flightState,code1,code2,code3," +
 			"code4,depPlanTime,depActualTime,arrPlanTime,arrActualTime,mileage,duration,age," +
 			"preFlightNo,preFlightState,preFlightDepCode,preFlightArrCode," +

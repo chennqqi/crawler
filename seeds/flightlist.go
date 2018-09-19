@@ -36,7 +36,7 @@ func PullFlightListAt(date string) (chan Flight, error) {
 	}
 
 	// query total flight to fetch
-	row := db.QueryRow(fmt.Sprintf("select count(*) from dbo.Airline_%s where date='%s'",
+	row := db.QueryRow(fmt.Sprintf("select count(*) from dbo.FutureList_%s where date='%s'",
 		strings.Replace(date, "-", "", -1)[0:6], date))
 	err = row.Scan(&TotalFlight)
 	if err != nil {
@@ -48,7 +48,7 @@ func PullFlightListAt(date string) (chan Flight, error) {
 	ch := make(chan Flight)
 
 	go func() {
-		query := fmt.Sprintf("select date,flightNo from dbo.Airline_%s where date='%s'",
+		query := fmt.Sprintf("select date,flightNo from dbo.FutureList_%s where date='%s'",
 			strings.Replace(date, "-", "", -1)[0:6], date)
 		rows, err := db.Query(query)
 		if err != nil {
