@@ -41,9 +41,10 @@ var DefaultFutureEngine = FutureEngine{
 // Run 运行引擎
 func (e FutureEngine) Run() {
 
-	// 从未来航班列表中拉取要抓取的航班列表
 	// 因为要作为计划任务每天执行，所以日期使用明天
 	var date = time.Now().Add(1 * 24 * time.Hour).Format("2006-01-02")
+
+	// 从未来航班列表中拉取要抓取的航班列表
 	flightlist, err := seeds.PullFlightListAt(date)
 	if err != nil {
 		panic(err)

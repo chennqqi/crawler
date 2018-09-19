@@ -56,6 +56,12 @@ func (e SimpleEngine) Run() {
 	}
 
 start:
+	// 初始化计数器
+	persist.FlightSum = 0
+	persist.AirportIndex = 0
+	types.T1 = time.Now()
+
+	// 获取新的日期
 	date := start.Format("2006-01-02")
 	// generate airport seed
 	airports, err := seeds.PullAirportList()
@@ -107,7 +113,7 @@ start:
 					log.Printf("\nsave %v error: %v\n", data, err)
 				}
 				if end {
-					fmt.Println("begin next date")
+					fmt.Println("\nbegin next date...")
 					time.Sleep(5 * time.Second)
 					completed <- true
 				}

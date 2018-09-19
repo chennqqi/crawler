@@ -32,8 +32,8 @@ func init() {
 	}
 }
 
-var airportIndex = 0
-var flightSum = 0
+var AirportIndex = 0
+var FlightSum = 0
 
 func Print(result types.ParseResult, notifier types.PrintNotifier,
 	limiter types.RateLimiter) bool {
@@ -43,9 +43,9 @@ func Print(result types.ParseResult, notifier types.PrintNotifier,
 		_ = item.(parser.FlightListData)
 
 		itemCount++
-		flightSum++
+		FlightSum++
 	}
-	airportIndex++
+	AirportIndex++
 
 	data := types.NotifyData{
 		Type:    "list",
@@ -54,17 +54,17 @@ func Print(result types.ParseResult, notifier types.PrintNotifier,
 		Airport: types.Airport{
 			DepCode: result.Request.RawParam.Dep,
 			ArrCode: result.Request.RawParam.Arr},
-		AirportIndex: airportIndex,
+		AirportIndex: AirportIndex,
 		AirportTotal: seeds.TotalAirports,
 		FlightCount:  itemCount,
-		FlightSum:    flightSum,
-		Progress:     float32(100 * float64(airportIndex) / float64(seeds.TotalAirports)),
+		FlightSum:    FlightSum,
+		Progress:     float32(100 * float64(AirportIndex) / float64(seeds.TotalAirports)),
 		QPS:          limiter.QPS(),
 	}
 	notifier.Print(data)
 
 	// task is completed?
-	if airportIndex >= seeds.TotalAirports {
+	if AirportIndex >= seeds.TotalAirports {
 		return true
 	} else {
 		return false
@@ -103,10 +103,10 @@ func Save(result types.ParseResult, notifier types.PrintNotifier, limiter types.
 		}
 
 		itemCount++
-		flightSum++
+		FlightSum++
 	}
 
-	airportIndex++
+	AirportIndex++
 
 	data := types.NotifyData{
 		Type:    "list",
@@ -115,17 +115,17 @@ func Save(result types.ParseResult, notifier types.PrintNotifier, limiter types.
 		Airport: types.Airport{
 			DepCode: result.Request.RawParam.Dep,
 			ArrCode: result.Request.RawParam.Arr},
-		AirportIndex: airportIndex,
+		AirportIndex: AirportIndex,
 		AirportTotal: seeds.TotalAirports,
 		FlightCount:  itemCount,
-		FlightSum:    flightSum,
-		Progress:     float32(100 * float64(airportIndex) / float64(seeds.TotalAirports)),
+		FlightSum:    FlightSum,
+		Progress:     float32(100 * float64(AirportIndex) / float64(seeds.TotalAirports)),
 		QPS:          limiter.QPS(),
 	}
 	notifier.Print(data)
 
 	// task is completed?
-	if airportIndex >= seeds.TotalAirports {
+	if AirportIndex >= seeds.TotalAirports {
 		return parser.FlightListData{}, true, nil
 	} else {
 		return parser.FlightListData{}, false, nil

@@ -9,14 +9,12 @@ import (
 
 	"time"
 
-	"fmt"
-
 	"github.com/champkeh/crawler/fetcher"
 	"github.com/champkeh/crawler/notifier"
+	"github.com/champkeh/crawler/persist"
 	"github.com/champkeh/crawler/scheduler"
 	"github.com/champkeh/crawler/seeds"
 	"github.com/champkeh/crawler/types"
-	"github.com/champkeh/crawler/umetrip/parser"
 )
 
 type RealTimeEngine struct {
@@ -41,10 +39,13 @@ var DefaultRealTimeEngine = RealTimeEngine{
 func (e RealTimeEngine) Run() {
 	reqChannel := make(chan types.Request, 3000)
 
+	// 从未来航班列表中拉取当天最近2小时起飞的航班，放在 reqChannel 容器中
 	err := seeds.PullLatestFlight(reqChannel)
 	if err != nil {
 		panic(err)
 	}
+
+	// 然后，每隔2小时拉取一次
 	go func() {
 		ticker := time.NewTicker(2 * time.Hour)
 		for {
@@ -74,43 +75,17 @@ func (e RealTimeEngine) Run() {
 	// run the rate-limiter
 	go e.RateLimiter.Run()
 
-	count := 0
 	for {
 		select {
 		case result := <-out:
-			go func() {
-				isfinished := true
-				for _, item := range result.Items {
-					data := item.(parser.FlightDetailData)
-					if IsFinished(data.FlightState) == false {
-						isfinished = false
-						break
-					}
-				}
-
-				count++
-				if isfinished == false {
-					// 航班没有结束，继续监控
-					fmt.Printf("#%d 继续监控:\n", count)
-					for _, item := range result.Items {
-						data := item.(parser.FlightDetailData)
-						fmt.Printf("%s:%s %s\n", data.FlightDate, data.FlightNo, data.FlightState)
-					}
-					go func() {
-						// 5分钟之后继续
-						time.Sleep(5 * time.Minute)
-						e.Scheduler.Submit(result.Request)
-					}()
-
-				} else {
-					if len(result.Items) == 0 {
-						fmt.Printf("#%d 没有抓取到%s:%s的实时数据\n", count,
-							result.Request.RawParam.Date, result.Request.RawParam.Fno)
-					} else {
-						fmt.Printf("#%d 航班状态终结:\n%v\n", count, result.Items)
-					}
-				}
-			}()
+			status := persist.PrintRealTime(result, e.RateLimiter, reqChannel)
+			if status == false {
+				go func() {
+					// 航班没有结束，5分钟之后，继续跟踪
+					time.Sleep(5 * time.Minute)
+					e.Scheduler.Submit(result.Request)
+				}()
+			}
 		}
 	}
 }
@@ -150,11 +125,4 @@ func (e RealTimeEngine) CreateFetchWorker(in chan types.Request, out chan types.
 			out <- parseResult
 		}
 	}()
-}
-
-func IsFinished(state string) bool {
-	if state == "到达" || state == "取消" || state == "备降" || state == "返航" {
-		return true
-	}
-	return false
 }

@@ -48,7 +48,7 @@ func PullFlightListAt(date string) (chan Flight, error) {
 	ch := make(chan Flight)
 
 	go func() {
-		query := fmt.Sprintf("select date,flightNo from dbo.FutureList_%s where date='%s'",
+		query := fmt.Sprintf("select distinct date,flightNo from dbo.FutureList_%s where date='%s'",
 			strings.Replace(date, "-", "", -1)[0:6], date)
 		rows, err := db.Query(query)
 		if err != nil {

@@ -22,12 +22,12 @@ func PullLatestFlight(container chan types.Request) error {
 		return err
 	}
 
-	// 计算日期
+	// 计算未来2小时的时间边界范围
 	var tablename = time.Now().Format("200601")
 	var now = time.Now().Format("2006-01-02 15:04:05")
 	var end = time.Now().Add(2 * time.Hour).Format("2006-01-02 15:04:05")
 
-	var query = fmt.Sprintf("select date,flightNo from [Airline_%s] "+
+	var query = fmt.Sprintf("select distinct date,flightNo,depPlanTime from [dbo].[FutureList_%s] "+
 		"where depPlanTime >= '%s' "+
 		"and depPlanTime <= '%s' "+
 		"order by depPlanTime", tablename, now, end)
@@ -40,8 +40,9 @@ func PullLatestFlight(container chan types.Request) error {
 		defer rows.Close()
 
 		var flight Flight
+		var depplantime string
 		for rows.Next() {
-			err := rows.Scan(&flight.FlightDate, &flight.FlightNo)
+			err := rows.Scan(&flight.FlightDate, &flight.FlightNo, &depplantime)
 			if err != nil {
 				log.Fatal(err)
 			}

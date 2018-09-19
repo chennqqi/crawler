@@ -27,22 +27,22 @@ func PrintDetail(result types.ParseResult, notifier types.PrintNotifier,
 
 		itemCount++
 	}
-	flightSum++
+	FlightSum++
 
 	data := types.NotifyData{
 		Type:        "detail",
 		Elapsed:     time.Since(types.T1),
 		Date:        result.Request.RawParam.Date,
 		FlightCount: itemCount,
-		FlightSum:   flightSum,
+		FlightSum:   FlightSum,
 		FlightTotal: seeds.TotalFlight,
-		Progress:    float32(100 * float64(flightSum) / float64(seeds.TotalFlight)),
+		Progress:    float32(100 * float64(FlightSum) / float64(seeds.TotalFlight)),
 		QPS:         limiter.QPS(),
 	}
 	notifier.Print(data)
 
 	// task is completed?
-	if flightSum >= seeds.TotalFlight {
+	if FlightSum >= seeds.TotalFlight {
 		go func() {
 			// program exit after 5 seconds
 			fmt.Println("Completed! Program will exit after 5 seconds...")
@@ -115,22 +115,22 @@ func SaveDetail(result types.ParseResult, notifier types.PrintNotifier, limiter 
 		itemCount++
 
 	}
-	flightSum++
+	FlightSum++
 
 	data := types.NotifyData{
 		Type:        "detail",
 		Elapsed:     time.Since(types.T1),
 		Date:        result.Request.RawParam.Date,
 		FlightCount: itemCount,
-		FlightSum:   flightSum,
+		FlightSum:   FlightSum,
 		FlightTotal: seeds.TotalFlight,
-		Progress:    float32(100 * float64(flightSum) / float64(seeds.TotalFlight)),
+		Progress:    float32(100 * float64(FlightSum) / float64(seeds.TotalFlight)),
 		QPS:         limiter.QPS(),
 	}
 	notifier.Print(data)
 
 	// task is completed?
-	if flightSum >= seeds.TotalFlight {
+	if FlightSum >= seeds.TotalFlight {
 		go func() {
 			// program exit after 5 seconds
 			fmt.Println("Completed! Program will exit after 5 seconds...")
