@@ -107,7 +107,6 @@ start:
 					log.Printf("\nsave %v error: %v\n", data, err)
 				}
 				if end {
-					close(reqChannel)
 					fmt.Println("begin next date")
 					time.Sleep(5 * time.Second)
 					completed <- true
