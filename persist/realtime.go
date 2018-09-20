@@ -82,20 +82,45 @@ func IsFinished(state string) bool {
 	return false
 }
 
+type dbFlight struct {
+	FlightNo       string
+	Date           string
+	DepCode        string
+	ArrCode        string
+	FlightState    string
+	Code1          string
+	Code2          string
+	Code3          string
+	Code4          string
+	PreFlightNo    string
+	PreFlightState string
+}
+
 func SaveRealTime(result types.ParseResult) error {
 	for _, item := range result.Items {
 		data := item.(parser.FlightDetailData)
 
-		var state string
-		// 检查航班状态是否有变化
+		// 获取数据库中该航班的最新状态并进行比较
+		var dbFlightState dbFlight
 		db.QueryRow(fmt.Sprintf(
-			"select top 1 flightState from [dbo].[RealTime] "+
+			"select top 1 flightNo,date,depCode,arrCode,flightState,code1,code2,code3,code4,preFlightNo,preFlightState from [dbo].[RealTime] "+
 				"where flightNo='%s' and date='%s' and depCode='%s' and arrCode='%s' "+
 				"order by createAt desc",
-			data.FlightNo, data.FlightDate, data.DepCode, data.ArrCode)).Scan(&state)
+			data.FlightNo, data.FlightDate, data.DepCode, data.ArrCode)).Scan(
+			&dbFlightState.FlightNo,
+			&dbFlightState.Date,
+			&dbFlightState.DepCode,
+			&dbFlightState.ArrCode,
+			&dbFlightState.FlightState,
+			&dbFlightState.Code1,
+			&dbFlightState.Code2,
+			&dbFlightState.Code3,
+			&dbFlightState.Code4,
+			&dbFlightState.PreFlightNo,
+			&dbFlightState.PreFlightState)
 
-		if data.FlightState == state {
-			// 状态没有发生变化，该航班不需要保存
+		if Equal(data, dbFlightState) {
+			// 状态没有发生任何变化，该航班不需要保存
 			continue
 		}
 		// 解析起降时间
@@ -133,4 +158,23 @@ func SaveRealTime(result types.ParseResult) error {
 		}
 	}
 	return nil
+}
+
+func Equal(newdata parser.FlightDetailData, old dbFlight) bool {
+	// 比较时间
+	if old.Code1 != newdata.DepPlanTime || old.Code2 != newdata.DepActualTime ||
+		old.Code3 != newdata.ArrPlanTime || old.Code4 != newdata.ArrActualTime {
+		return false
+	}
+
+	// 比较航班状态
+	if old.FlightState != newdata.FlightState {
+		return false
+	}
+
+	// 比较前序航班状态
+	if old.PreFlightNo != newdata.PreFlightNo || old.PreFlightState != newdata.PreFlightState {
+		return false
+	}
+	return true
 }
