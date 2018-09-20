@@ -1,9 +1,5 @@
 package engine
 
-/*
- * This engine is used to crawling the real-time flight data
- */
-
 import (
 	"log"
 
@@ -17,6 +13,9 @@ import (
 	"github.com/champkeh/crawler/types"
 )
 
+// RealTimeEngine
+//
+// 这个引擎用于爬取实时航班数据
 type RealTimeEngine struct {
 	Scheduler     types.Scheduler
 	PrintNotifier types.PrintNotifier
@@ -24,6 +23,9 @@ type RealTimeEngine struct {
 	WorkerCount   int
 }
 
+// DefaultRealTimeEngine
+//
+// 实时引擎的默认配置
 var DefaultRealTimeEngine = RealTimeEngine{
 	Scheduler: &scheduler.SimpleScheduler{},
 	PrintNotifier: &notifier.ConsolePrintNotifier{
@@ -33,21 +35,24 @@ var DefaultRealTimeEngine = RealTimeEngine{
 	WorkerCount: 100,
 }
 
-// Run is the first step to startup the engine.
-// this is used to fetch the first batch flight list data
-// only once every day, and save result to database
+// Run
+//
+// 启动实时抓取引擎
 func (e RealTimeEngine) Run() {
+
+	// 实时抓取请求的容器
 	reqChannel := make(chan types.Request, 3000)
 
 	// 从未来航班列表中拉取当天最近2小时起飞的航班，放在 reqChannel 容器中
+	// note: 由于数据源的问题，可能会拉取到不在2小时之内的航班
 	err := seeds.PullLatestFlight(reqChannel)
 	if err != nil {
 		panic(err)
 	}
 
-	// 然后，每隔2小时拉取一次
 	go func() {
-		ticker := time.NewTicker(2 * time.Hour)
+		// 然后，每隔2小时拉取一次
+		ticker := time.NewTicker(115 * time.Minute)
 		for {
 			select {
 			case <-ticker.C:
@@ -70,8 +75,6 @@ func (e RealTimeEngine) Run() {
 		e.CreateFetchWorker(reqChannel, out)
 	}
 
-	// run the print-notifier
-	go e.PrintNotifier.Run()
 	// run the rate-limiter
 	go e.RateLimiter.Run()
 

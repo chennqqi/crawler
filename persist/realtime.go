@@ -12,6 +12,15 @@ import (
 	_ "github.com/denisenkom/go-mssqldb"
 )
 
+type StatEntry struct {
+	Date         string
+	CompletedSum int
+	SuspendSum   int
+	NotFound     int
+}
+
+var StatData map[string]*StatEntry
+
 func init() {
 	var err error
 
@@ -23,26 +32,18 @@ func init() {
 		panic(err)
 	}
 
+	// 初始化统计容器
 	StatData = make(map[string]*StatEntry)
 }
-
-type StatEntry struct {
-	Date         string
-	CompletedSum int
-	SuspendSum   int
-	NotFound     int
-}
-
-var StatData map[string]*StatEntry
 
 func PrintRealTime(result types.ParseResult, limiter types.RateLimiter,
 	reqChan chan types.Request) bool {
 
-	isfinished := true
+	isFinished := true
 	for _, item := range result.Items {
-		data := item.(parser.FlightDetailData)
-		if IsFinished(data.FlightState) == false {
-			isfinished = false
+		flightItem := item.(parser.FlightDetailData)
+		if IsFinished(flightItem.FlightState) == false {
+			isFinished = false
 			break
 		}
 	}
@@ -59,7 +60,7 @@ func PrintRealTime(result types.ParseResult, limiter types.RateLimiter,
 		data.Date, len(reqChan), data.CompletedSum, data.SuspendSum,
 		data.NotFound, limiter.QPS())
 
-	if isfinished == false {
+	if isFinished == false {
 		data.SuspendSum++
 		go SaveRealTime(result)
 		return false
@@ -94,8 +95,8 @@ func SaveRealTime(result types.ParseResult) error {
 			data.FlightNo, data.FlightDate, data.DepCode, data.ArrCode)).Scan(&state)
 
 		if data.FlightState == state {
-			// 状态没有发生变化
-			return nil
+			// 状态没有发生变化，该航班不需要保存
+			continue
 		}
 		// 解析起降时间
 		depPlanTime := parseTimeCode(data.DepPlanTime)

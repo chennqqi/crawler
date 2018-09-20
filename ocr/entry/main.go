@@ -29,8 +29,8 @@ func init() {
 
 func main() {
 
-	rows, err := db.Query(`select distinct code3 from dbo.FutureFlightData_201809
-where code3 not in (
+	rows, err := db.Query(`select distinct code2 from dbo.RealTime
+where code2 not in (
 select code from dbo.code_to_time
 )
 `)

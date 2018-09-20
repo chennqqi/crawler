@@ -14,7 +14,7 @@ import (
 )
 
 func PullLatestFlight(container chan types.Request) error {
-	// connect sql server
+	// 打开数据库连接
 	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=60",
 		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightData")
 	db, err := sql.Open("sqlserver", connstr)
@@ -33,6 +33,7 @@ func PullLatestFlight(container chan types.Request) error {
 		"order by depPlanTime", tablename, now, end)
 
 	go func() {
+		fmt.Printf("\n%s query: %q\n", time.Now().Format("2006-01-02 15:04:05"), query)
 		rows, err := db.Query(query)
 		if err != nil {
 			panic(err)
