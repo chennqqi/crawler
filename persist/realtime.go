@@ -9,7 +9,9 @@ import (
 	"github.com/champkeh/crawler/config"
 	"github.com/champkeh/crawler/types"
 	"github.com/champkeh/crawler/umetrip/parser"
+	"github.com/champkeh/crawler/utils"
 	_ "github.com/denisenkom/go-mssqldb"
+	"github.com/labstack/gommon/log"
 )
 
 type StatEntry struct {
@@ -37,11 +39,13 @@ func init() {
 }
 
 func PrintRealTime(result types.ParseResult, limiter types.RateLimiter,
-	reqChan chan types.Request) bool {
+	reqChan chan types.Request) (bool, string) {
 
 	isFinished := true
+	state := ""
 	for _, item := range result.Items {
 		flightItem := item.(parser.FlightDetailData)
+		state = flightItem.FlightState
 		if IsFinished(flightItem.FlightState) == false {
 			isFinished = false
 			break
@@ -63,7 +67,7 @@ func PrintRealTime(result types.ParseResult, limiter types.RateLimiter,
 	if isFinished == false {
 		data.SuspendSum++
 		go SaveRealTime(result)
-		return false
+		return false, state
 	} else {
 		if len(result.Items) == 0 {
 			data.NotFound++
@@ -71,7 +75,7 @@ func PrintRealTime(result types.ParseResult, limiter types.RateLimiter,
 			data.CompletedSum++
 			go SaveRealTime(result)
 		}
-		return true
+		return true, state
 	}
 }
 
@@ -88,10 +92,10 @@ type dbFlight struct {
 	DepCode        string
 	ArrCode        string
 	FlightState    string
-	Code1          string
-	Code2          string
-	Code3          string
-	Code4          string
+	DepPlanTime    string
+	DepActualTime  string
+	ArrPlanTime    string
+	ArrActualTime  string
 	PreFlightNo    string
 	PreFlightState string
 }
@@ -100,10 +104,26 @@ func SaveRealTime(result types.ParseResult) error {
 	for _, item := range result.Items {
 		data := item.(parser.FlightDetailData)
 
+		// 将code解析为time
+		depPlanTime := utils.Code2Time(data.DepPlanTime)
+		depActualTime := utils.Code2Time(data.DepActualTime)
+		arrPlanTime := utils.Code2Time(data.ArrPlanTime)
+		arrActualTime := utils.Code2Time(data.ArrActualTime)
+
+		// 将time转为datetime
+		data.DepPlanTime = utils.TimeToDatetime(data.FlightDate, depPlanTime, depPlanTime)
+		data.DepActualTime = utils.TimeToDatetime(data.FlightDate, depPlanTime, depActualTime)
+		data.ArrPlanTime = utils.TimeToDatetime(data.FlightDate, depPlanTime, arrPlanTime)
+		data.ArrActualTime = utils.TimeToDatetime(data.FlightDate, depPlanTime, arrActualTime)
+
 		// 获取数据库中该航班的最新状态并进行比较
 		var dbFlightState dbFlight
-		db.QueryRow(fmt.Sprintf(
-			"select top 1 flightNo,date,depCode,arrCode,flightState,code1,code2,code3,code4,preFlightNo,preFlightState from [dbo].[RealTime] "+
+		err := db.QueryRow(fmt.Sprintf(
+			"select top 1 "+
+				"flightNo,date,depCode,arrCode,flightState,"+
+				"depPlanTime,depActualTime,arrPlanTime,arrActualTime,"+
+				"preFlightNo,preFlightState "+
+				"from [dbo].[RealTime] "+
 				"where flightNo='%s' and date='%s' and depCode='%s' and arrCode='%s' "+
 				"order by createAt desc",
 			data.FlightNo, data.FlightDate, data.DepCode, data.ArrCode)).Scan(
@@ -112,10 +132,10 @@ func SaveRealTime(result types.ParseResult) error {
 			&dbFlightState.DepCode,
 			&dbFlightState.ArrCode,
 			&dbFlightState.FlightState,
-			&dbFlightState.Code1,
-			&dbFlightState.Code2,
-			&dbFlightState.Code3,
-			&dbFlightState.Code4,
+			&dbFlightState.DepPlanTime,
+			&dbFlightState.DepActualTime,
+			&dbFlightState.ArrPlanTime,
+			&dbFlightState.ArrActualTime,
 			&dbFlightState.PreFlightNo,
 			&dbFlightState.PreFlightState)
 
@@ -123,57 +143,122 @@ func SaveRealTime(result types.ParseResult) error {
 			// 状态没有发生任何变化，该航班不需要保存
 			continue
 		}
-		// 解析起降时间
-		depPlanTime := parseTimeCode(data.DepPlanTime)
-		depActualTime := parseTimeCode(data.DepActualTime)
-		arrPlanTime := parseTimeCode(data.ArrPlanTime)
-		arrActualTime := parseTimeCode(data.ArrActualTime)
 
-		_, err := db.Exec("insert into [dbo].[RealTime]" +
-			"(flightNo,date,depCode,arrCode,depCity,arrCity,flightState,code1,code2,code3," +
-			"code4,depPlanTime,depActualTime,arrPlanTime,arrActualTime,mileage,duration,age," +
-			"preFlightNo,preFlightState,preFlightDepCode,preFlightArrCode," +
-			"depWeather,arrWeather,depFlow,arrFlow,createAt)" +
-			" values ('" + data.FlightNo + "', '" + data.FlightDate +
-			"', '" + data.DepCode + "', '" + data.ArrCode +
-			"', '" + data.DepCity + "', '" + data.ArrCity +
-			"', '" + data.FlightState +
-			"', '" + data.DepPlanTime +
-			"', '" + data.DepActualTime +
-			"', '" + data.ArrPlanTime +
-			"', '" + data.ArrActualTime +
-			"', '" + timeToDatetime(data.FlightDate, depPlanTime, depPlanTime) +
-			"', '" + timeToDatetime(data.FlightDate, depPlanTime, depActualTime) +
-			"', '" + timeToDatetime(data.FlightDate, depPlanTime, arrPlanTime) +
-			"', '" + timeToDatetime(data.FlightDate, depPlanTime, arrActualTime) +
-			"', '" + data.Mileage + "', '" + data.Duration + "', '" + data.Age +
-			"', '" + data.PreFlightNo + "', '" + data.PreFlightState +
-			"', '" + data.PreFlightDepCode +
-			"', '" + data.PreFlightArrCode +
-			"', '" + data.DepWeather + "', '" + data.ArrWeather +
-			"', '" + data.DepFlow + "', '" + data.ArrFlow +
-			"', '" + time.Now().Format("2006-01-02 15:04:05") + "')")
-		if err != nil {
-			return err
+		if err == sql.ErrNoRows {
+			// 插入
+			_, err = db.Exec(fmt.Sprintf("insert into [dbo].[RealTime]"+
+				"(flightNo,date,depCode,arrCode,depCity,arrCity,flightState,"+
+				"depPlanTime,depActualTime,arrPlanTime,arrActualTime,"+
+				"mileage,duration,age,"+
+				"preFlightNo,preFlightState,preFlightDepCode,preFlightArrCode,"+
+				"depWeather,arrWeather,"+
+				"depFlow,arrFlow,createAt)"+
+				" values ("+
+				"'%s','%s','%s','%s','%s','%s','%s',"+
+				"'%s','%s','%s','%s',"+
+				"'%s','%s','%s',"+
+				"'%s','%s','%s','%s',"+
+				"'%s','%s',"+
+				"'%s','%s','%s')",
+				data.FlightNo,
+				data.FlightDate,
+				data.DepCode,
+				data.ArrCode,
+				data.DepCity,
+				data.ArrCity,
+				data.FlightState,
+				data.DepPlanTime,
+				data.DepActualTime,
+				data.ArrPlanTime,
+				data.ArrActualTime,
+				data.Mileage,
+				data.Duration,
+				data.Age,
+				data.PreFlightNo,
+				data.PreFlightState,
+				data.PreFlightDepCode,
+				data.PreFlightArrCode,
+				data.DepWeather,
+				data.ArrWeather,
+				data.DepFlow,
+				data.ArrFlow,
+				time.Now().Format("2006-01-02 15:04:05")))
+		} else if err == nil {
+			// 更新数据字段
+			_, err = db.Exec(fmt.Sprintf("update [dbo].[RealTime]"+
+				" set"+
+				" flightState='%s',"+
+				" depPlanTime='%s',"+
+				" depActualTime='%s',"+
+				" arrPlanTime='%s',"+
+				" arrActualTime='%s',"+
+				" preFlightNo='%s',"+
+				" preFlightState='%s',"+
+				" preFlightDepCode='%s',"+
+				" preFlightArrCode='%s',"+
+				" depWeather='%s',"+
+				" arrWeather='%s',"+
+				" depFlow='%s',"+
+				" arrFlow='%s',"+
+				" createAt='%s'"+
+				" where flightNo='%s' and date='%s' and depCode='%s' and arrCode='%s'",
+				data.FlightState,
+				data.DepPlanTime,
+				data.DepActualTime,
+				data.ArrPlanTime,
+				data.ArrActualTime,
+				data.PreFlightNo,
+				data.PreFlightState,
+				data.PreFlightDepCode,
+				data.PreFlightArrCode,
+				data.DepWeather,
+				data.ArrWeather,
+				data.DepFlow,
+				data.ArrFlow,
+				time.Now().Format("2006-01-02 15:04:05"),
+				data.FlightNo, data.FlightDate, data.DepCode, data.ArrCode))
+
+			// 更新抓取时间字段
+			if data.FlightState == "起飞" {
+				_, err = db.Exec(fmt.Sprintf("update [dbo].[RealTime]"+
+					" set"+
+					" depAt='%s'"+
+					" where flightNo='%s' and date='%s' and depCode='%s' and arrCode='%s'",
+					time.Now().Format("2006-01-02 15:04:05"),
+					data.FlightNo, data.FlightDate, data.DepCode, data.ArrCode))
+			} else if data.FlightState == "到达" {
+				_, err = db.Exec(fmt.Sprintf("update [dbo].[RealTime]"+
+					" set"+
+					" arrAt='%s'"+
+					" where flightNo='%s' and date='%s' and depCode='%s' and arrCode='%s'",
+					time.Now().Format("2006-01-02 15:04:05"),
+					data.FlightNo, data.FlightDate, data.DepCode, data.ArrCode))
+			}
+
+			if err != nil {
+				log.Warnf("save result error: %v", err)
+			}
+		} else {
+			log.Warnf("save result error: %v", err)
 		}
 	}
 	return nil
 }
 
-func Equal(newdata parser.FlightDetailData, old dbFlight) bool {
+func Equal(newdata parser.FlightDetailData, olddata dbFlight) bool {
 	// 比较时间
-	if old.Code1 != newdata.DepPlanTime || old.Code2 != newdata.DepActualTime ||
-		old.Code3 != newdata.ArrPlanTime || old.Code4 != newdata.ArrActualTime {
+	if olddata.DepPlanTime != newdata.DepPlanTime || olddata.DepActualTime != newdata.DepActualTime ||
+		olddata.ArrPlanTime != newdata.ArrPlanTime || olddata.ArrActualTime != newdata.ArrActualTime {
 		return false
 	}
 
 	// 比较航班状态
-	if old.FlightState != newdata.FlightState {
+	if olddata.FlightState != newdata.FlightState {
 		return false
 	}
 
 	// 比较前序航班状态
-	if old.PreFlightNo != newdata.PreFlightNo || old.PreFlightState != newdata.PreFlightState {
+	if olddata.PreFlightNo != newdata.PreFlightNo || olddata.PreFlightState != newdata.PreFlightState {
 		return false
 	}
 	return true

@@ -2,7 +2,7 @@ package engine
 
 import (
 	"fmt"
-	"log"
+
 	"time"
 
 	"github.com/champkeh/crawler/fetcher"
@@ -11,6 +11,7 @@ import (
 	"github.com/champkeh/crawler/scheduler"
 	"github.com/champkeh/crawler/seeds"
 	"github.com/champkeh/crawler/types"
+	"github.com/labstack/gommon/log"
 )
 
 // FutureEngine
@@ -41,8 +42,11 @@ var DefaultFutureEngine = FutureEngine{
 // Run 运行引擎
 func (e FutureEngine) Run() {
 
+	// 清除之前的数据
+	persist.ClearDataBase()
+
 	// 因为要作为计划任务每天执行，所以日期使用明天
-	var date = time.Now().Add(1 * 24 * time.Hour).Format("2006-01-02")
+	var date = time.Now().Add(24 * time.Hour).Format("2006-01-02")
 
 	// 从未来航班列表中拉取要抓取的航班列表
 	flightlist, err := seeds.PullFlightListAt(date)
@@ -70,6 +74,7 @@ func (e FutureEngine) Run() {
 	go e.RateLimiter.Run()
 
 	timer := time.NewTimer(3 * time.Minute)
+
 	for {
 		timer.Reset(3 * time.Minute)
 
@@ -83,7 +88,7 @@ func (e FutureEngine) Run() {
 			go func() {
 				data, err := persist.SaveDetail(result, e.PrintNotifier, e.RateLimiter)
 				if err != nil {
-					log.Printf("\nsave %v error: %v\n", data, err)
+					log.Warnf("save %v error: %v", data, err)
 				}
 			}()
 
@@ -91,21 +96,20 @@ func (e FutureEngine) Run() {
 			fmt.Println("Read timeout, exit the program.")
 			return
 		}
-
 	}
 }
 
 func (e FutureEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 	body, err := fetcher.Fetch(r.Url, e.RateLimiter)
 	if err != nil {
-		log.Printf("\nFetcher: error fetching url %s: %v\n", r.Url, err)
-		log.Printf("Current Rate: %d\n", e.RateLimiter.Rate())
+		log.Warnf("fetcher: error fetching url %s: %v", r.Url, err)
+		log.Warnf("Current Rate: %d", e.RateLimiter.Rate())
 		return types.ParseResult{}, err
 	}
 
 	result, err := r.ParserFunc(body)
 	if err != nil {
-		log.Printf("\n%s:%s 解析失败:%s\n", r.RawParam.Date, r.RawParam.Fno, err)
+		log.Warnf("%s:%s 解析失败:%s", r.RawParam.Date, r.RawParam.Fno, err)
 	}
 	result.Request = r
 

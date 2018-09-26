@@ -2,8 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"log"
-
 	"fmt"
 
 	"github.com/champkeh/crawler/config"
@@ -28,38 +26,20 @@ func init() {
 }
 
 func main() {
+	code := "JVOwmjsiHgwuGyS1QvWtTQ=="
 
-	rows, err := db.Query(`select distinct code2 from dbo.RealTime
-where code2 not in (
-select code from dbo.code_to_time
-)
-`)
+	s, err := ocr.Resolve(code)
 	if err != nil {
-		panic(err)
+		fmt.Printf("resolve %s error: %v\n", code, err)
+		return
 	}
-	defer rows.Close()
-
-	var count int
-	var code string
-	for rows.Next() {
-		err := rows.Scan(&code)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		s, err := ocr.Resolve(code)
-		if err != nil {
-			fmt.Printf("resolve %s error: %v\n", code, err)
-			continue
-		}
-		err = save(code, s)
-		if err != nil {
-			fmt.Printf("save (%s:%s) error: %v\n", code, s, err)
-			continue
-		}
-		count++
-		fmt.Printf("#%d save (%s:%s) success\n", count, code, s)
+	err = save(code, s)
+	if err != nil {
+		fmt.Printf("save (%s:%s) error: %v\n", code, s, err)
+		return
 	}
+
+	fmt.Printf("save (%s:%s) success\n", code, s)
 }
 
 func save(code, time string) error {

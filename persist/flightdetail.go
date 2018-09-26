@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/champkeh/crawler/config"
-	"github.com/champkeh/crawler/ocr"
 	"github.com/champkeh/crawler/seeds"
 	"github.com/champkeh/crawler/types"
 	"github.com/champkeh/crawler/umetrip/parser"
+	"github.com/champkeh/crawler/utils"
 	_ "github.com/denisenkom/go-mssqldb"
 )
 
@@ -63,12 +63,21 @@ func init() {
 	}
 }
 
+func ClearDataBase() {
+	// 清除之前的数据
+	_, err := db.Exec("delete from [dbo].[FutureDetail_" + time.Now().Add(24*time.Hour).Format("200601") + "] " +
+		"where date='" + time.Now().Add(24*time.Hour).Format("2006-01-02") + "'")
+	if err != nil {
+		panic(err)
+	}
+}
+
 func SaveDetail(result types.ParseResult, notifier types.PrintNotifier, limiter types.RateLimiter) (
 	parser.FlightDetailData, error) {
 
 	// 确保数据表存在
-	date := strings.Replace(result.Request.RawParam.Date, "-", "", -1)[0:6]
-	_, err := db.Exec("sp_createFutureDetailTable", sql.Named("tablename", "FutureDetail_"+date))
+	tabledate := strings.Replace(result.Request.RawParam.Date, "-", "", -1)[0:6]
+	_, err := db.Exec("sp_createFutureDetailTable", sql.Named("tablename", "FutureDetail_"+tabledate))
 	if err != nil {
 		panic(err)
 	}
@@ -79,28 +88,31 @@ func SaveDetail(result types.ParseResult, notifier types.PrintNotifier, limiter 
 		data := item.(parser.FlightDetailData)
 
 		// 解析起降时间
-		depPlanTime := parseTimeCode(data.DepPlanTime)
-		depActualTime := parseTimeCode(data.DepActualTime)
-		arrPlanTime := parseTimeCode(data.ArrPlanTime)
-		arrActualTime := parseTimeCode(data.ArrActualTime)
+		depPlanTime := utils.Code2Time(data.DepPlanTime)
+		depActualTime := utils.Code2Time(data.DepActualTime)
+		arrPlanTime := utils.Code2Time(data.ArrPlanTime)
+		arrActualTime := utils.Code2Time(data.ArrActualTime)
 
-		_, err := db.Exec("insert into [dbo].[FutureDetail_" + date + "]" +
-			"(flightNo,date,depCode,arrCode,depCity,arrCity,flightState,code1,code2,code3," +
-			"code4,depPlanTime,depActualTime,arrPlanTime,arrActualTime,mileage,duration,age," +
+		_, err := db.Exec("insert into [dbo].[FutureDetail_" + tabledate + "]" +
+			"(flightNo,date,depCode,arrCode,depCity,arrCity,flightState," +
+			"depPlanTime,depActualTime,arrPlanTime,arrActualTime," +
+			"code1,code2,code3,code4," +
+			"mileage,duration,age," +
 			"preFlightNo,preFlightState,preFlightDepCode,preFlightArrCode," +
-			"depWeather,arrWeather,depFlow,arrFlow,createAt)" +
+			"depWeather,arrWeather," +
+			"depFlow,arrFlow,createAt)" +
 			" values ('" + data.FlightNo + "', '" + data.FlightDate +
 			"', '" + data.DepCode + "', '" + data.ArrCode +
 			"', '" + data.DepCity + "', '" + data.ArrCity +
 			"', '" + data.FlightState +
+			"', '" + utils.TimeToDatetime(data.FlightDate, depPlanTime, depPlanTime) +
+			"', '" + utils.TimeToDatetime(data.FlightDate, depPlanTime, depActualTime) +
+			"', '" + utils.TimeToDatetime(data.FlightDate, depPlanTime, arrPlanTime) +
+			"', '" + utils.TimeToDatetime(data.FlightDate, depPlanTime, arrActualTime) +
 			"', '" + data.DepPlanTime +
 			"', '" + data.DepActualTime +
 			"', '" + data.ArrPlanTime +
 			"', '" + data.ArrActualTime +
-			"', '" + timeToDatetime(data.FlightDate, depPlanTime, depPlanTime) +
-			"', '" + timeToDatetime(data.FlightDate, depPlanTime, depActualTime) +
-			"', '" + timeToDatetime(data.FlightDate, depPlanTime, arrPlanTime) +
-			"', '" + timeToDatetime(data.FlightDate, depPlanTime, arrActualTime) +
 			"', '" + data.Mileage + "', '" + data.Duration + "', '" + data.Age +
 			"', '" + data.PreFlightNo + "', '" + data.PreFlightState +
 			"', '" + data.PreFlightDepCode +
@@ -113,7 +125,6 @@ func SaveDetail(result types.ParseResult, notifier types.PrintNotifier, limiter 
 		}
 
 		itemCount++
-
 	}
 	FlightSum++
 
@@ -140,31 +151,4 @@ func SaveDetail(result types.ParseResult, notifier types.PrintNotifier, limiter 
 	}
 
 	return parser.FlightDetailData{}, nil
-}
-
-func parseTimeCode(code string) string {
-	// 查数据库
-	s, err := ocr.CodeToTime(code)
-	if err != nil {
-		// 数据库命中
-		return ""
-	}
-
-	return s
-}
-
-func timeToDatetime(date, deptime, arrtime string) string {
-	if deptime == "" || arrtime == "" {
-		return "1990-01-01 00:00"
-	}
-
-	if arrtime >= deptime {
-		return date + " " + arrtime
-	} else {
-		parse, err := time.Parse("2006-01-02", date)
-		if err != nil {
-			panic(err)
-		}
-		return parse.Add(24*time.Hour).Format("2006-01-02") + " " + arrtime
-	}
 }

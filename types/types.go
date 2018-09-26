@@ -40,6 +40,7 @@ type Param struct {
 // Request
 type Request struct {
 	RawParam   Param
+	FetchCount int64
 	Url        string
 	ParserFunc func([]byte) (ParseResult, error)
 }

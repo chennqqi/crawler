@@ -1,9 +1,11 @@
 package engine
 
 import (
-	"log"
-
 	"time"
+
+	"fmt"
+
+	"os"
 
 	"github.com/champkeh/crawler/fetcher"
 	"github.com/champkeh/crawler/notifier"
@@ -11,7 +13,16 @@ import (
 	"github.com/champkeh/crawler/scheduler"
 	"github.com/champkeh/crawler/seeds"
 	"github.com/champkeh/crawler/types"
+	"github.com/champkeh/crawler/utils"
+	"github.com/labstack/gommon/log"
 )
+
+func init() {
+	exists := utils.Exists("realtime.log")
+	if !exists {
+		os.Create("realtime.log")
+	}
+}
 
 // RealTimeEngine
 //
@@ -45,19 +56,19 @@ func (e RealTimeEngine) Run() {
 
 	// 从未来航班列表中拉取当天最近2小时起飞的航班，放在 reqChannel 容器中
 	// note: 由于数据源的问题，可能会拉取到不在2小时之内的航班
-	err := seeds.PullLatestFlight(reqChannel)
+	err := seeds.PullLatestFlight(reqChannel, true)
 	if err != nil {
 		panic(err)
 	}
 
 	go func() {
 		// 然后，每隔2小时拉取一次
-		ticker := time.NewTicker(115 * time.Minute)
+		ticker := time.NewTicker(100 * time.Minute)
 		for {
 			select {
 			case <-ticker.C:
 				// 拉取最近2小时起飞的航班，放在 reqChannel 容器中
-				err := seeds.PullLatestFlight(reqChannel)
+				err := seeds.PullLatestFlight(reqChannel, false)
 				if err != nil {
 					panic(err)
 				}
@@ -81,11 +92,16 @@ func (e RealTimeEngine) Run() {
 	for {
 		select {
 		case result := <-out:
-			status := persist.PrintRealTime(result, e.RateLimiter, reqChannel)
-			if status == false {
+			finished, status := persist.PrintRealTime(result, e.RateLimiter, reqChannel)
+			if finished == false {
 				go func() {
 					// 航班没有结束，5分钟之后，继续跟踪
-					time.Sleep(5 * time.Minute)
+					if status == "暂无" {
+						time.Sleep(30 * time.Minute)
+					} else {
+						time.Sleep(5 * time.Minute)
+					}
+					result.Request.FetchCount++
 					e.Scheduler.Submit(result.Request)
 				}()
 			}
@@ -96,14 +112,14 @@ func (e RealTimeEngine) Run() {
 func (e RealTimeEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 	body, err := fetcher.Fetch(r.Url, e.RateLimiter)
 	if err != nil {
-		log.Printf("\nFetcher: error fetching url %s: %v\n", r.Url, err)
-		log.Printf("Current Rate: %d\n", e.RateLimiter.Rate())
+		log.Warnf("Fetcher: error fetching url %s: %v", r.Url, err)
+		log.Warnf("Current Rate: %d", e.RateLimiter.Rate())
 		return types.ParseResult{}, err
 	}
 
 	result, err := r.ParserFunc(body)
 	if err != nil {
-		log.Printf("parse (%s:%s) error: %v\n", r.RawParam.Date, r.RawParam.Fno, err)
+		log.Warnf("parse (%s:%s) error: %v", r.RawParam.Date, r.RawParam.Fno, err)
 	}
 	result.Request = r
 
@@ -114,6 +130,24 @@ func (e RealTimeEngine) CreateFetchWorker(in chan types.Request, out chan types.
 	go func() {
 		for {
 			request := <-in
+
+			//
+			edge := time.Now().Add(-2 * 24 * time.Hour).Format("2006-01-02")
+
+			if request.RawParam.Date <= edge {
+				// 前天的航班不再跟踪
+				utils.AppendToFile("realtime.log",
+					fmt.Sprintf(">=2:[%s]fetch not success: %s:%s:%d\n",
+						time.Now().Format("2006-01-02 15:04:05"),
+						request.RawParam.Date, request.RawParam.Fno, request.FetchCount))
+				continue
+			} else if request.RawParam.Date < time.Now().Format("2006-01-02") {
+				utils.AppendToFile("realtime.log",
+					fmt.Sprintf("==1:[%s]fetch not success: %s:%s:%d\n",
+						time.Now().Format("2006-01-02 15:04:05"),
+						request.RawParam.Date, request.RawParam.Fno, request.FetchCount))
+			}
+
 			parseResult, err := e.fetchWorker(request)
 			if err != nil {
 				// fetch request failed, submit this request to scheduler to fetch

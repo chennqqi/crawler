@@ -20,7 +20,10 @@ func TestEqual(t *testing.T) {
 	// 获取数据库中该航班的最新状态并进行比较
 	var dbFlightState dbFlight
 	db.QueryRow(fmt.Sprintf(
-		"select top 1 flightNo,date,depCode,arrCode,flightState,code1,code2,code3,code4,preFlightNo,preFlightState from [dbo].[RealTime] "+
+		"select top 1 "+
+			"flightNo,date,depCode,arrCode,flightState,"+
+			"depPlanTime,depActualTime,arrPlanTime,arrActualTime,"+
+			"preFlightNo,preFlightState from [dbo].[RealTime] "+
 			"where flightNo='%s' and date='%s' and depCode='%s' and arrCode='%s' "+
 			"order by createAt desc",
 		"MF8185", "2018-09-20", "FOC", "CSX")).Scan(
@@ -29,10 +32,10 @@ func TestEqual(t *testing.T) {
 		&dbFlightState.DepCode,
 		&dbFlightState.ArrCode,
 		&dbFlightState.FlightState,
-		&dbFlightState.Code1,
-		&dbFlightState.Code2,
-		&dbFlightState.Code3,
-		&dbFlightState.Code4,
+		&dbFlightState.DepPlanTime,
+		&dbFlightState.DepActualTime,
+		&dbFlightState.ArrPlanTime,
+		&dbFlightState.ArrActualTime,
 		&dbFlightState.PreFlightNo,
 		&dbFlightState.PreFlightState)
 	fmt.Println(dbFlightState)

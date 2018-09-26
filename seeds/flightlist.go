@@ -2,7 +2,6 @@ package seeds
 
 import (
 	"database/sql"
-	"log"
 
 	"fmt"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/champkeh/crawler/types"
 	"github.com/champkeh/crawler/umetrip/parser"
 	_ "github.com/denisenkom/go-mssqldb"
+	"github.com/labstack/gommon/log"
 )
 
 type Flight struct {
@@ -36,7 +36,8 @@ func PullFlightListAt(date string) (chan Flight, error) {
 	}
 
 	// query total flight to fetch
-	row := db.QueryRow(fmt.Sprintf("select count(*) from dbo.FutureList_%s where date='%s'",
+	row := db.QueryRow(fmt.Sprintf("select count(1) from "+
+		"(select distinct date,flightNo from dbo.FutureList_%s where date='%s') as temp",
 		strings.Replace(date, "-", "", -1)[0:6], date))
 	err = row.Scan(&TotalFlight)
 	if err != nil {
@@ -60,7 +61,7 @@ func PullFlightListAt(date string) (chan Flight, error) {
 		for rows.Next() {
 			err := rows.Scan(&flight.FlightDate, &flight.FlightNo)
 			if err != nil {
-				log.Fatal(err)
+				log.Warnf("scan error: %v", err)
 				continue
 			}
 
