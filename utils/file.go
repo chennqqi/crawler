@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -15,8 +16,7 @@ func AppendToFile(filename string, content string) error {
 
 	file, err := os.OpenFile(filename, os.O_WRONLY, 0644)
 	if err != nil {
-		fmt.Printf("file %s create failed. err: %s", filename, err)
-		return err
+		return errors.New(fmt.Sprintf("append fail: %v", err))
 	}
 	defer file.Close()
 
@@ -34,4 +34,11 @@ func Exists(path string) bool {
 		return false
 	}
 	return true
+}
+
+func MustExist(path string) {
+	exists := Exists(path)
+	if !exists {
+		os.Create(path)
+	}
 }

@@ -1,4 +1,4 @@
-package engine
+package foreign
 
 import (
 	"log"
@@ -64,7 +64,7 @@ start:
 	// 获取新的日期
 	date := start.Format("2006-01-02")
 	// generate airport seed
-	airports, err := seeds.PullAirportList()
+	airports, err := seeds.PullForeignAirportList()
 	if err != nil {
 		panic(err)
 	}
@@ -98,17 +98,16 @@ start:
 		case result := <-out:
 			// this is only print to console/http client,
 			// not save to database.
-			//end := persist.Print(result, e.PrintNotifier, e.RateLimiter)
-			//if end {
-			//	close(reqChannel)
-			//	fmt.Println("begin next date")
-			//	time.Sleep(5 * time.Second)
-			//	completed <- true
-			//}
+			end := persist.Print(result, e.PrintNotifier, e.RateLimiter)
+			if end {
+				fmt.Println("\nbegin next date...")
+				time.Sleep(5 * time.Second)
+				completed <- true
+			}
 
 			// this is save to database
 			go func() {
-				data, end, err := persist.Save(result, false, e.PrintNotifier, e.RateLimiter)
+				data, end, err := persist.Save(result, true, e.PrintNotifier, e.RateLimiter)
 				if err != nil {
 					log.Printf("\nsave %v error: %v\n", data, err)
 				}

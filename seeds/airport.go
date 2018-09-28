@@ -18,7 +18,7 @@ var (
 	TotalAirports int
 )
 
-// PullAirportList pull all airport data e.g. (PEK SHA),(SHA LYA) etc from database
+// 拉取国内航班的三字码组合
 func PullAirportList() (chan types.Airport, error) {
 
 	// 从基础数据库中查所有机场三字码组合
@@ -43,6 +43,53 @@ func PullAirportList() (chan types.Airport, error) {
 	go func() {
 		rows, err := db.Query(`select distinct a.Code,b.Code from dbo.Inf_AirportSTD a
 				join dbo.Inf_AirportSTD b on a.CityCode != b.CityCode`)
+		if err != nil {
+			panic(err)
+		}
+		defer rows.Close()
+
+		var airport types.Airport
+		for rows.Next() {
+			err := rows.Scan(&airport.DepCode, &airport.ArrCode)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			// this will blocked until it's value have been taken by others.
+			ch <- airport
+		}
+		close(ch)
+	}()
+
+	return ch, nil
+}
+
+// 拉取国外航班的三字码组合
+func PullForeignAirportList() (chan types.Airport, error) {
+	// 从基础数据库中查所有机场三字码组合
+	db, err := sql.Open("sqlserver", fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=60",
+		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightBaseData"))
+	if err != nil {
+		return nil, err
+	}
+
+	// query total airports to fetch
+	row := db.QueryRow(`select count(1) from [dbo].[Inf_AirportUME] a
+join dbo.Inf_AirportUME b on a.CityCode != b.CityCode
+where a.Country != 'china' and b.Country != 'china'`)
+	err = row.Scan(&TotalAirports)
+	if err != nil {
+		return nil, err
+	}
+
+	// this channel is non-buffer channel, which means that send to this
+	// channel will be blocked if it has already value in it.
+	ch := make(chan types.Airport)
+
+	go func() {
+		rows, err := db.Query(`select distinct a.tcode,b.tcode from [dbo].[Inf_AirportUME] a
+join dbo.Inf_AirportUME b on a.CityCode != b.CityCode
+where a.Country != 'china' and b.Country != 'china'`)
 		if err != nil {
 			panic(err)
 		}

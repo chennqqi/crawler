@@ -125,7 +125,7 @@ func SaveRealTime(result types.ParseResult) error {
 				"preFlightNo,preFlightState "+
 				"from [dbo].[RealTime] "+
 				"where flightNo='%s' and date='%s' and depCode='%s' and arrCode='%s' "+
-				"order by createAt desc",
+				"order by updateAt desc",
 			data.FlightNo, data.FlightDate, data.DepCode, data.ArrCode)).Scan(
 			&dbFlightState.FlightNo,
 			&dbFlightState.Date,
@@ -145,27 +145,76 @@ func SaveRealTime(result types.ParseResult) error {
 		}
 
 		if err == sql.ErrNoRows {
-			// 插入
-			_, err = db.Exec(fmt.Sprintf("insert into [dbo].[RealTime]"+
-				"(flightNo,date,depCode,arrCode,depCity,arrCity,flightState,"+
-				"depPlanTime,depActualTime,arrPlanTime,arrActualTime,"+
-				"mileage,duration,age,"+
-				"preFlightNo,preFlightState,preFlightDepCode,preFlightArrCode,"+
-				"depWeather,arrWeather,"+
-				"depFlow,arrFlow,createAt)"+
-				" values ("+
-				"'%s','%s','%s','%s','%s','%s','%s',"+
-				"'%s','%s','%s','%s',"+
-				"'%s','%s','%s',"+
-				"'%s','%s','%s','%s',"+
-				"'%s','%s',"+
-				"'%s','%s','%s')",
-				data.FlightNo,
-				data.FlightDate,
-				data.DepCode,
-				data.ArrCode,
-				data.DepCity,
-				data.ArrCity,
+			log.Warnf("not exist entry [%s:%s:%s:%s]",
+				data.FlightDate, data.FlightNo, data.DepCode, data.ArrCode)
+
+			// 只有当天的航班，才进行插入操作
+			// 因为之前的不存在的航班，可能是已经归档了
+			if data.FlightDate >= time.Now().Format("2006-01-02") {
+				// 插入
+				_, err = db.Exec(fmt.Sprintf("insert into [dbo].[RealTime]"+
+					"(flightNo,date,depCode,arrCode,depCity,arrCity,flightState,"+
+					"depPlanTime,depActualTime,arrPlanTime,arrActualTime,"+
+					"mileage,duration,age,"+
+					"preFlightNo,preFlightState,preFlightDepCode,preFlightArrCode,"+
+					"depWeather,arrWeather,"+
+					"depFlow,arrFlow,updateAt)"+
+					" values ("+
+					"'%s','%s','%s','%s','%s','%s','%s',"+
+					"'%s','%s','%s','%s',"+
+					"'%s','%s','%s',"+
+					"'%s','%s','%s','%s',"+
+					"'%s','%s',"+
+					"'%s','%s','%s')",
+					data.FlightNo,
+					data.FlightDate,
+					data.DepCode,
+					data.ArrCode,
+					data.DepCity,
+					data.ArrCity,
+					data.FlightState,
+					data.DepPlanTime,
+					data.DepActualTime,
+					data.ArrPlanTime,
+					data.ArrActualTime,
+					data.Mileage,
+					data.Duration,
+					data.Age,
+					data.PreFlightNo,
+					data.PreFlightState,
+					data.PreFlightDepCode,
+					data.PreFlightArrCode,
+					data.DepWeather,
+					data.ArrWeather,
+					data.DepFlow,
+					data.ArrFlow,
+					time.Now().Format("2006-01-02 15:04:05")))
+				if err != nil {
+					log.Fatalf("insert error: %s", err)
+				}
+			}
+		} else if err == nil {
+			// 更新数据字段
+			_, err = db.Exec(fmt.Sprintf("update [dbo].[RealTime]"+
+				" set"+
+				" flightState='%s',"+
+				" depPlanTime='%s',"+
+				" depActualTime='%s',"+
+				" arrPlanTime='%s',"+
+				" arrActualTime='%s',"+
+				" mileage='%s',"+
+				" duration='%s',"+
+				" age='%s',"+
+				" preFlightNo='%s',"+
+				" preFlightState='%s',"+
+				" preFlightDepCode='%s',"+
+				" preFlightArrCode='%s',"+
+				" depWeather='%s',"+
+				" arrWeather='%s',"+
+				" depFlow='%s',"+
+				" arrFlow='%s',"+
+				" updateAt='%s'"+
+				" where flightNo='%s' and date='%s' and depCode='%s' and arrCode='%s'",
 				data.FlightState,
 				data.DepPlanTime,
 				data.DepActualTime,
@@ -182,64 +231,36 @@ func SaveRealTime(result types.ParseResult) error {
 				data.ArrWeather,
 				data.DepFlow,
 				data.ArrFlow,
-				time.Now().Format("2006-01-02 15:04:05")))
-		} else if err == nil {
-			// 更新数据字段
-			_, err = db.Exec(fmt.Sprintf("update [dbo].[RealTime]"+
-				" set"+
-				" flightState='%s',"+
-				" depPlanTime='%s',"+
-				" depActualTime='%s',"+
-				" arrPlanTime='%s',"+
-				" arrActualTime='%s',"+
-				" preFlightNo='%s',"+
-				" preFlightState='%s',"+
-				" preFlightDepCode='%s',"+
-				" preFlightArrCode='%s',"+
-				" depWeather='%s',"+
-				" arrWeather='%s',"+
-				" depFlow='%s',"+
-				" arrFlow='%s',"+
-				" createAt='%s'"+
-				" where flightNo='%s' and date='%s' and depCode='%s' and arrCode='%s'",
-				data.FlightState,
-				data.DepPlanTime,
-				data.DepActualTime,
-				data.ArrPlanTime,
-				data.ArrActualTime,
-				data.PreFlightNo,
-				data.PreFlightState,
-				data.PreFlightDepCode,
-				data.PreFlightArrCode,
-				data.DepWeather,
-				data.ArrWeather,
-				data.DepFlow,
-				data.ArrFlow,
 				time.Now().Format("2006-01-02 15:04:05"),
 				data.FlightNo, data.FlightDate, data.DepCode, data.ArrCode))
+			if err != nil {
+				log.Fatalf("update error: %s", err)
+			}
 
 			// 更新抓取时间字段
-			if data.FlightState == "起飞" {
+			if data.FlightState == "起飞" && dbFlightState.FlightState != "起飞" {
 				_, err = db.Exec(fmt.Sprintf("update [dbo].[RealTime]"+
 					" set"+
 					" depAt='%s'"+
 					" where flightNo='%s' and date='%s' and depCode='%s' and arrCode='%s'",
 					time.Now().Format("2006-01-02 15:04:05"),
 					data.FlightNo, data.FlightDate, data.DepCode, data.ArrCode))
-			} else if data.FlightState == "到达" {
+				if err != nil {
+					log.Warnf("update depAt error: %v", err)
+				}
+			} else if data.FlightState == "到达" && dbFlightState.FlightState != "到达" {
 				_, err = db.Exec(fmt.Sprintf("update [dbo].[RealTime]"+
 					" set"+
 					" arrAt='%s'"+
 					" where flightNo='%s' and date='%s' and depCode='%s' and arrCode='%s'",
 					time.Now().Format("2006-01-02 15:04:05"),
 					data.FlightNo, data.FlightDate, data.DepCode, data.ArrCode))
-			}
-
-			if err != nil {
-				log.Warnf("save result error: %v", err)
+				if err != nil {
+					log.Warnf("update arrAt error: %v", err)
+				}
 			}
 		} else {
-			log.Warnf("save result error: %v", err)
+			log.Warnf("scan dbflight error: %v", err)
 		}
 	}
 	return nil

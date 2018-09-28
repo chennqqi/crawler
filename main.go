@@ -13,4 +13,7 @@ func main() {
 
 	// 未来航班列表
 	//engine.DefaultSimpleEngine.Run()
+
+	//国际航班列表
+	//foreign.DefaultSimpleEngine.Run()
 }

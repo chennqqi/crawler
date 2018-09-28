@@ -1,6 +1,7 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 	"time"
 )
@@ -54,6 +55,8 @@ type ParseResult struct {
 func NilParser(contents []byte) ParseResult {
 	return ParseResult{}
 }
+
+var ErrNotFound = errors.New("parser: not found")
 
 // Airport come from database seed
 type Airport struct {

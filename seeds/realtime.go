@@ -32,13 +32,13 @@ func PullLatestFlight(container chan types.Request, launch bool) error {
 		// 启动时，会加载当天未完成的航班
 		query = fmt.Sprintf("select distinct date,flightNo from [dbo].[RealTime] "+
 			"where depPlanTime <= '%s' "+
-			"and flightState not in ('到达','取消','备降','返航')", end)
+			"and flightState not in ('到达','取消','备降','返航','暂无')", end)
 	} else {
 		// 非启动时，尽加载未来2小时的航班
 		query = fmt.Sprintf("select distinct date,flightNo from [dbo].[RealTime] "+
 			"where depPlanTime >= '%s' "+
 			"and depPlanTime <= '%s' "+
-			"and flightState not in ('到达','取消','备降','返航')", now, end)
+			"and flightState not in ('到达','取消','备降','返航','暂无')", now, end)
 	}
 
 	go func() {

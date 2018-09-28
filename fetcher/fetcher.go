@@ -26,8 +26,6 @@ func Fetch(url string, rateLimiter types.RateLimiter) ([]byte, error) {
 	request.Header.Set("Connection", "keep-alive")
 
 	resp, err := http.DefaultClient.Do(request)
-
-	//resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
 	}

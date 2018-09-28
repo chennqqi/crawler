@@ -42,6 +42,22 @@ func TestParseSuperMultiDetail(t *testing.T) {
 	}
 }
 
+func TestNotFound(t *testing.T) {
+	contents, err := ioutil.ReadFile("./testdata/notfound.html")
+	if err != nil {
+		t.Errorf("read test data fail: %v", err)
+	}
+
+	parseResult, err := ParseDetail(contents)
+	if err != nil {
+		t.Errorf("parse error: %v", err)
+	}
+	for _, result := range parseResult.Items {
+		fmt.Println(result)
+	}
+	fmt.Println(parseResult)
+}
+
 func TestParseTime(t *testing.T) {
 	cases := []struct {
 		url      string

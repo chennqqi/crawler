@@ -71,12 +71,18 @@ func Print(result types.ParseResult, notifier types.PrintNotifier,
 	}
 }
 
-func Save(result types.ParseResult, notifier types.PrintNotifier, limiter types.RateLimiter) (
+func Save(result types.ParseResult, foreign bool, notifier types.PrintNotifier, limiter types.RateLimiter) (
 	parser.FlightListData, bool, error) {
 
 	//create table to save result
 	date := strings.Replace(result.Request.RawParam.Date, "-", "", -1)[0:6]
-	_, err := db.Exec("sp_createFutureListTable", sql.Named("tablename", "dbo.FutureList_"+date))
+
+	// 表名，默认为国内表
+	tablename := "dbo.FutureList"
+	if foreign {
+		tablename = "dbo.ForeignFutureList"
+	}
+	_, err := db.Exec("sp_createFutureListTable", sql.Named("tablename", tablename+"_"+date))
 	if err != nil {
 		panic(err)
 	}
@@ -86,7 +92,7 @@ func Save(result types.ParseResult, notifier types.PrintNotifier, limiter types.
 		data := item.(parser.FlightListData)
 		split := strings.Split(data.Airport, "/")
 
-		_, err := db.Exec("insert into [dbo].[FutureList_" + date + "]" +
+		_, err := db.Exec("insert into " + tablename + "_" + date +
 			"(dep,arr,date,flightNo,flightName,flightState,depPlanTime,arrPlanTime,depActualTime," +
 			"arrActualTime,depPort,arrPort,createAt)" +
 			" values ('" + result.Request.RawParam.Dep + "', '" + result.Request.RawParam.Arr + "', '" + result.Request.RawParam.Date +

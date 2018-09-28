@@ -17,6 +17,7 @@ import (
 // cron 计划任务
 //
 // 用来对RealTime表中的航班数据进行归档
+// archive-realtime-to-history
 func main() {
 	// 连接到 FlightData 数据库
 	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=10",
@@ -26,7 +27,7 @@ func main() {
 		panic(err)
 	}
 
-	// 对昨天已完结的航班进行归档
+	// 对昨天以前已完结的航班进行归档
 	date := time.Now().Add(-24 * time.Hour).Format("2006-01-02")
 	query := fmt.Sprintf("select id,flightNo,date,depCode,arrCode,depCity,arrCity,flightState,"+
 		"depPlanTime,depActualTime,arrPlanTime,arrActualTime,"+
@@ -124,7 +125,6 @@ func main() {
 			continue
 		}
 		count++
-		fmt.Printf("#%d insert success\n", count)
 
 		// remove origin data
 		_, err = db.Exec(fmt.Sprintf("delete from [dbo].[RealTime] where id=%d", id))
@@ -134,5 +134,6 @@ func main() {
 		}
 	}
 
-	fmt.Println("\nArchive Completed!")
+	fmt.Printf("[%s] archive %d completed\n",
+		time.Now().Format("2006-01-02 15:04:05"), count)
 }

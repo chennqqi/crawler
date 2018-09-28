@@ -15,6 +15,7 @@ import (
 // cron 计划任务
 //
 // 从FutureDetail表拷贝第2天的实时航班数据到RealTime表中
+// copy-init-data-to-realtime
 func main() {
 	// 打开数据库连接
 	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=60",
@@ -40,6 +41,7 @@ func main() {
 	}
 	defer rows.Close()
 
+	copyCount := 0
 	var data parser.FlightDetailData
 	for rows.Next() {
 		err = rows.Scan(
@@ -70,33 +72,48 @@ func main() {
 			continue
 		}
 
-		//写入实时表
-		_, err = db.Exec("insert into [dbo].[RealTime]" +
-			"(flightNo,date,depCode,arrCode,depCity,arrCity,flightState," +
-			"depPlanTime,depActualTime,arrPlanTime,arrActualTime," +
-			"mileage,duration,age," +
-			"preFlightNo,preFlightState,preFlightDepCode,preFlightArrCode," +
-			"depWeather,arrWeather,depFlow,arrFlow,createAt)" +
-			" values ('" + data.FlightNo + "', '" + data.FlightDate +
-			"', '" + data.DepCode + "', '" + data.ArrCode +
-			"', '" + data.DepCity + "', '" + data.ArrCity +
-			"', '" + data.FlightState +
-			"', '" + data.DepPlanTime +
-			"', '" + data.DepActualTime +
-			"', '" + data.ArrPlanTime +
-			"', '" + data.ArrActualTime +
-			"', '" + data.Mileage + "', '" + data.Duration + "', '" + data.Age +
-			"', '" + data.PreFlightNo + "', '" + data.PreFlightState +
-			"', '" + data.PreFlightDepCode +
-			"', '" + data.PreFlightArrCode +
-			"', '" + data.DepWeather + "', '" + data.ArrWeather +
-			"', '" + data.DepFlow + "', '" + data.ArrFlow +
-			"', '" + time.Now().Format("2006-01-02 15:04:05") + "')")
+		// 检查是否存在
+		existCount := 0
+		err := db.QueryRow(fmt.Sprintf("select count(1) from [dbo].[RealTime]"+
+			" where flightNo='%s' and date='%s' and depCode='%s' and arrCode='%s'",
+			data.FlightNo, data.FlightDate, data.DepCode, data.ArrCode)).Scan(&existCount)
 		if err != nil {
-			log.Warnf("insert error: %v", err)
+			log.Errorf("scan error: %v", err)
 			continue
+		} else if existCount == 0 {
+			//写入实时表
+			_, err = db.Exec("insert into [dbo].[RealTime]" +
+				"(flightNo,date,depCode,arrCode,depCity,arrCity,flightState," +
+				"depPlanTime,depActualTime,arrPlanTime,arrActualTime," +
+				"mileage,duration,age," +
+				"preFlightNo,preFlightState,preFlightDepCode,preFlightArrCode," +
+				"depWeather,arrWeather,depFlow,arrFlow,updateAt)" +
+				" values ('" + data.FlightNo + "', '" + data.FlightDate +
+				"', '" + data.DepCode + "', '" + data.ArrCode +
+				"', '" + data.DepCity + "', '" + data.ArrCity +
+				"', '" + data.FlightState +
+				"', '" + data.DepPlanTime +
+				"', '" + data.DepActualTime +
+				"', '" + data.ArrPlanTime +
+				"', '" + data.ArrActualTime +
+				"', '" + data.Mileage + "', '" + data.Duration + "', '" + data.Age +
+				"', '" + data.PreFlightNo + "', '" + data.PreFlightState +
+				"', '" + data.PreFlightDepCode +
+				"', '" + data.PreFlightArrCode +
+				"', '" + data.DepWeather + "', '" + data.ArrWeather +
+				"', '" + data.DepFlow + "', '" + data.ArrFlow +
+				"', '" + time.Now().Format("2006-01-02 15:04:05") + "')")
+			if err != nil {
+				log.Warnf("insert error: %v", err)
+				continue
+			}
+			copyCount++
+		} else {
+			log.Warnf("entry [%s:%s:%s:%s] exist: %d",
+				data.FlightDate, data.FlightNo, data.DepCode, data.ArrCode,
+				existCount)
 		}
 	}
 
-	fmt.Printf("%s copy completed\n", date)
+	fmt.Printf("[%s] copy init data %d completed\n", date, copyCount)
 }
