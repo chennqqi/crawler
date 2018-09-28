@@ -16,8 +16,14 @@ import (
 const base64header string = "data:image/png;base64,"
 
 var (
-	db *sql.DB
+	db      *sql.DB
+	codemap map[string]string
 )
+
+type codetimeEntry struct {
+	code string
+	time string
+}
 
 func init() {
 	var err error
@@ -29,9 +35,38 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+
+	//初始化的时候，把所有的code都加载到内存
+	query := fmt.Sprintf("select code,time from dbo.code_to_time")
+	rows, err := db.Query(query)
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+
+	codemap = make(map[string]string)
+	var entry = codetimeEntry{}
+	count := 0
+	for rows.Next() {
+		err := rows.Scan(&entry.code, &entry.time)
+		if err != nil {
+			panic(err)
+		}
+
+		codemap[entry.code] = entry.time
+		count++
+	}
+	fmt.Printf("code-time load completed(%d)\n", count)
 }
 
 func CodeToTime(code string) (string, error) {
+
+	// 优先查找内存中的数据库
+	if timestr, ok := codemap[code]; ok {
+		return timestr, nil
+	}
+
+	fmt.Printf("cache entry not found %s\n", code)
 	query := fmt.Sprintf("select time from dbo.code_to_time where code = '%s'", code)
 	var timestr string
 	err := db.QueryRow(query).Scan(&timestr)
