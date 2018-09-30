@@ -16,6 +16,7 @@ import (
 	"github.com/champkeh/crawler/umetrip/parser"
 	"github.com/champkeh/crawler/utils"
 	_ "github.com/denisenkom/go-mssqldb"
+	"github.com/labstack/gommon/log"
 )
 
 func PrintDetail(result types.ParseResult, notifier types.PrintNotifier,
@@ -63,27 +64,43 @@ func init() {
 	}
 }
 
-func ClearDataBase() {
+// 清除未来详情数据
+func ClearDataBase(foreign bool) {
 	// 清除之前的数据
-	_, err := db.Exec("delete from [dbo].[FutureDetail_" + time.Now().Add(24*time.Hour).Format("200601") + "] " +
-		"where date='" + time.Now().Add(24*time.Hour).Format("2006-01-02") + "'")
+	tableprefix := "FutureDetail"
+	if foreign {
+		// 国际航班对应的表前缀
+		tableprefix = "ForeignFutureDetail"
+	}
+	tabledate := time.Now().Add(24 * time.Hour).Format("200601")
+
+	date := time.Now().Add(24 * time.Hour).Format("2006-01-02")
+
+	query := fmt.Sprintf("delete from [dbo].[%s_%s] where date='%s'", tableprefix, tabledate, date)
+	_, err := db.Exec(query)
 	if err != nil {
-		panic(err)
+		// note: 有可能表还不存在，所以要忽略这里的错误
+		log.Warnf("clear data error: %v", err)
 	}
 }
 
-func SaveDetail(result types.ParseResult, notifier types.PrintNotifier, limiter types.RateLimiter) (
+// 保存未来详情数据
+func SaveDetail(result types.ParseResult, foreign bool, notifier types.PrintNotifier, limiter types.RateLimiter) (
 	parser.FlightDetailData, error) {
 
-	// 确保数据表存在
+	tableprefix := "FutureDetail"
+	if foreign {
+		tableprefix = "ForeignFutureDetail"
+	}
 	tabledate := strings.Replace(result.Request.RawParam.Date, "-", "", -1)[0:6]
-	_, err := db.Exec("sp_createFutureDetailTable", sql.Named("tablename", "FutureDetail_"+tabledate))
+
+	// 确保数据表存在
+	_, err := db.Exec("sp_createFutureDetailTable", sql.Named("tablename", tableprefix+"_"+tabledate))
 	if err != nil {
 		panic(err)
 	}
 
 	var itemCount = 0
-
 	for _, item := range result.Items {
 		data := item.(parser.FlightDetailData)
 
@@ -93,33 +110,35 @@ func SaveDetail(result types.ParseResult, notifier types.PrintNotifier, limiter 
 		arrPlanTime := utils.Code2Time(data.ArrPlanTime)
 		arrActualTime := utils.Code2Time(data.ArrActualTime)
 
-		_, err := db.Exec("insert into [dbo].[FutureDetail_" + tabledate + "]" +
-			"(flightNo,date,depCode,arrCode,depCity,arrCity,flightState," +
-			"depPlanTime,depActualTime,arrPlanTime,arrActualTime," +
-			"code1,code2,code3,code4," +
-			"mileage,duration,age," +
-			"preFlightNo,preFlightState,preFlightDepCode,preFlightArrCode," +
-			"depWeather,arrWeather," +
-			"depFlow,arrFlow,createAt)" +
-			" values ('" + data.FlightNo + "', '" + data.FlightDate +
-			"', '" + data.DepCode + "', '" + data.ArrCode +
-			"', '" + data.DepCity + "', '" + data.ArrCity +
-			"', '" + data.FlightState +
-			"', '" + utils.TimeToDatetime(data.FlightDate, depPlanTime, depPlanTime) +
-			"', '" + utils.TimeToDatetime(data.FlightDate, depPlanTime, depActualTime) +
-			"', '" + utils.TimeToDatetime(data.FlightDate, depPlanTime, arrPlanTime) +
-			"', '" + utils.TimeToDatetime(data.FlightDate, depPlanTime, arrActualTime) +
-			"', '" + data.DepPlanTime +
-			"', '" + data.DepActualTime +
-			"', '" + data.ArrPlanTime +
-			"', '" + data.ArrActualTime +
-			"', '" + data.Mileage + "', '" + data.Duration + "', '" + data.Age +
-			"', '" + data.PreFlightNo + "', '" + data.PreFlightState +
-			"', '" + data.PreFlightDepCode +
-			"', '" + data.PreFlightArrCode +
-			"', '" + data.DepWeather + "', '" + data.ArrWeather +
-			"', '" + data.DepFlow + "', '" + data.ArrFlow +
-			"', '" + time.Now().Format("2006-01-02 15:04:05") + "')")
+		_, err := db.Exec(fmt.Sprintf("insert into [dbo].[%s_%s]"+
+			"(flightNo,date,depCode,arrCode,depCity,arrCity,flightState,"+
+			"depPlanTime,depActualTime,arrPlanTime,arrActualTime,"+
+			"code1,code2,code3,code4,"+
+			"mileage,duration,age,"+
+			"preFlightNo,preFlightState,preFlightDepCode,preFlightArrCode,"+
+			"depWeather,arrWeather,"+
+			"depFlow,arrFlow,createAt)"+
+			" values"+
+			"('%s','%s','%s','%s','%s','%s','%s',"+
+			"'%s','%s','%s','%s',"+
+			"'%s','%s','%s','%s',"+
+			"'%s','%s','%s',"+
+			"'%s','%s','%s','%s',"+
+			"'%s','%s',"+
+			"'%s','%s','%s')", tableprefix, tabledate,
+			data.FlightNo, data.FlightDate, data.DepCode, data.ArrCode, data.DepCity, data.ArrCity, data.FlightState,
+			utils.TimeToDatetime(data.FlightDate, depPlanTime, depPlanTime),
+			utils.TimeToDatetime(data.FlightDate, depPlanTime, depActualTime),
+			utils.TimeToDatetime(data.FlightDate, depPlanTime, arrPlanTime),
+			utils.TimeToDatetime(data.FlightDate, depPlanTime, arrActualTime),
+			data.DepPlanTime,
+			data.DepActualTime,
+			data.ArrPlanTime,
+			data.ArrActualTime,
+			data.Mileage, data.Duration, data.Age,
+			data.PreFlightNo, data.PreFlightState, data.PreFlightDepCode, data.PreFlightArrCode,
+			data.DepWeather, data.ArrWeather, data.DepFlow, data.ArrFlow,
+			time.Now().Format("2006-01-02 15:04:05")))
 		if err != nil {
 			return data, err
 		}

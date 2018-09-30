@@ -1,8 +1,7 @@
-package engine
+package foreign
 
 import (
 	"fmt"
-
 	"time"
 
 	"github.com/champkeh/crawler/fetcher"
@@ -14,7 +13,7 @@ import (
 	"github.com/labstack/gommon/log"
 )
 
-// FutureEngine
+// 国际航班未来1天航班详情获取引擎
 //
 // 这个引擎用来抓取未来航班的详情数据(机型、前序航班信息、...)
 // 只需要抓取未来1天的数据即可，因为只有未来1天的航班有前序航班信息
@@ -43,13 +42,13 @@ var DefaultFutureEngine = FutureEngine{
 func (e FutureEngine) Run() {
 
 	// 清除之前的数据
-	persist.ClearDataBase(false)
+	persist.ClearDataBase(true)
 
 	// 因为要作为计划任务每天执行，所以日期使用明天
 	var date = time.Now().Add(24 * time.Hour).Format("2006-01-02")
 
-	// 从未来航班列表中拉取要抓取的航班列表
-	flightlist, err := seeds.PullFlightListAt(date, false)
+	// 从未来国际航班列表中拉取要抓取的航班列表
+	flightlist, err := seeds.PullFlightListAt(date, true)
 	if err != nil {
 		panic(err)
 	}
@@ -86,7 +85,7 @@ func (e FutureEngine) Run() {
 
 			// this is save to database
 			go func() {
-				data, err := persist.SaveDetail(result, false, e.PrintNotifier, e.RateLimiter)
+				data, err := persist.SaveDetail(result, true, e.PrintNotifier, e.RateLimiter)
 				if err != nil {
 					log.Warnf("save %v error: %v", data, err)
 				}
@@ -110,9 +109,10 @@ func (e FutureEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 	result, err := r.ParserFunc(body)
 	if err != nil {
 		log.Warnf("%s:%s 解析失败:%s", r.RawParam.Date, r.RawParam.Fno, err)
+		return types.ParseResult{}, err
 	}
-	result.Request = r
 
+	result.Request = r
 	return result, nil
 }
 

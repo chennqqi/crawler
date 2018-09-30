@@ -98,9 +98,10 @@ func (e RealTimeEngine) Run() {
 			go func(finished bool, status string, result types.ParseResult) {
 				if finished == false {
 					// 任务未完成
-					if status == "暂无" && result.Request.FetchCount <= 5 {
-						// 暂无状态的航班，20分钟之后再次请求
-						time.Sleep(20 * time.Minute)
+					// todo: 正常的航班也有可能状态突然变成暂无，因此需要考虑这种情况
+					if status == "暂无" && result.Request.FetchCount <= 50 {
+						// 暂无状态的航班，10分钟之后再次请求
+						time.Sleep(10 * time.Minute)
 						result.Request.FetchCount++
 						e.Scheduler.Submit(result.Request)
 
@@ -110,7 +111,7 @@ func (e RealTimeEngine) Run() {
 								result.Request.RawParam.Date, result.Request.RawParam.Fno,
 								result.Request.FetchCount))
 					} else if status == "暂无" {
-						// 如果检测次数大于5，则不再检测
+						// 如果连续出现暂无次数大于50，则不再检测
 						utils.AppendToFile(LogFile,
 							fmt.Sprintf("==3:[%s]ignore no status entry [%s:%s %d]\n",
 								time.Now().Format("2006-01-02 15:04:05"),
@@ -119,7 +120,8 @@ func (e RealTimeEngine) Run() {
 					} else {
 						// 中间状态的航班，5分钟之后继续监测
 						time.Sleep(5 * time.Minute)
-						result.Request.FetchCount++
+						// 抓取正常，则重置该参数
+						result.Request.FetchCount = 0
 						e.Scheduler.Submit(result.Request)
 
 						utils.AppendToFile(LogFile,

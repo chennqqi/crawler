@@ -18,7 +18,7 @@ var (
 	TotalAirports int
 )
 
-// 拉取国内航班的三字码组合
+// 拉取国内航班的机场三字码组合
 func PullAirportList() (chan types.Airport, error) {
 
 	// 从基础数据库中查所有机场三字码组合
@@ -64,7 +64,7 @@ func PullAirportList() (chan types.Airport, error) {
 	return ch, nil
 }
 
-// 拉取国外航班的三字码组合
+// 拉取国外航班的机场三字码组合
 func PullForeignAirportList() (chan types.Airport, error) {
 	// 从基础数据库中查所有机场三字码组合
 	db, err := sql.Open("sqlserver", fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=60",
@@ -112,6 +112,7 @@ where a.Country != 'china' and b.Country != 'china'`)
 }
 
 // date format: "2018-09-09"
+// 将机场三字码添加日期属性，构成 request
 func AirportRequestFilter(airports chan types.Airport, date string) chan types.Request {
 
 	// because this channel is used for scheduler's in-channel, which will be snatched

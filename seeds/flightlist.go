@@ -25,7 +25,8 @@ var (
 )
 
 // date format: 2018-09-10
-func PullFlightListAt(date string) (chan Flight, error) {
+// 从未来航班列表中拉取航班号，并加入到 channel 中返回
+func PullFlightListAt(date string, foreign bool) (chan Flight, error) {
 
 	// connect sql server
 	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=60",
@@ -36,9 +37,15 @@ func PullFlightListAt(date string) (chan Flight, error) {
 	}
 
 	// query total flight to fetch
+	tableprefix := "FutureList"
+	if foreign {
+		tableprefix = "ForeignFutureList"
+	}
+	tabledate := strings.Replace(date, "-", "", -1)[0:6]
+
 	row := db.QueryRow(fmt.Sprintf("select count(1) from "+
-		"(select distinct date,flightNo from dbo.FutureList_%s where date='%s') as temp",
-		strings.Replace(date, "-", "", -1)[0:6], date))
+		"(select distinct date,flightNo from [dbo].[%s_%s] where date='%s') as temp",
+		tableprefix, tabledate, date))
 	err = row.Scan(&TotalFlight)
 	if err != nil {
 		return nil, err
@@ -49,8 +56,8 @@ func PullFlightListAt(date string) (chan Flight, error) {
 	ch := make(chan Flight)
 
 	go func() {
-		query := fmt.Sprintf("select distinct date,flightNo from dbo.FutureList_%s where date='%s'",
-			strings.Replace(date, "-", "", -1)[0:6], date)
+		query := fmt.Sprintf("select distinct date,flightNo from [dbo].[%s_%s] where date='%s'",
+			tableprefix, tabledate, date)
 		rows, err := db.Query(query)
 		if err != nil {
 			panic(err)
@@ -74,6 +81,7 @@ func PullFlightListAt(date string) (chan Flight, error) {
 	return ch, nil
 }
 
+// 把航班号添加日期，构造成 request
 func FlightRequestFilter(flights chan Flight) chan types.Request {
 
 	// because this channel is used for scheduler's in-channel, which will be snatched

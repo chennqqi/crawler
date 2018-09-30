@@ -195,6 +195,14 @@ func SaveRealTime(result types.ParseResult) error {
 			}
 		} else if err == nil {
 			// 更新数据字段
+
+			// 判断状态是否合理
+			// 暂无<计划<起飞<到达
+			// 预警<计划<起飞<到达
+			if data.FlightState == "暂无" && dbFlightState.FlightState != "暂无" {
+				continue
+			}
+
 			_, err = db.Exec(fmt.Sprintf("update [dbo].[RealTime]"+
 				" set"+
 				" flightState='%s',"+

@@ -18,6 +18,7 @@ import (
 	"github.com/champkeh/crawler/types"
 )
 
+// 国外机场列表获取引擎
 type SimpleEngine struct {
 	Scheduler     types.Scheduler
 	PrintNotifier types.PrintNotifier
@@ -87,10 +88,10 @@ start:
 	// run the rate-limiter
 	go e.RateLimiter.Run()
 
-	timer := time.NewTimer(3 * time.Minute)
+	timer := time.NewTimer(5 * time.Minute)
 	completed := make(chan bool)
 	for {
-		timer.Reset(3 * time.Minute)
+		timer.Reset(5 * time.Minute)
 
 		// when all result have been handled, this will blocked forever.
 		// so, here use `select` to avoid this problem.
@@ -98,12 +99,12 @@ start:
 		case result := <-out:
 			// this is only print to console/http client,
 			// not save to database.
-			end := persist.Print(result, e.PrintNotifier, e.RateLimiter)
-			if end {
-				fmt.Println("\nbegin next date...")
-				time.Sleep(5 * time.Second)
-				completed <- true
-			}
+			//end := persist.Print(result, e.PrintNotifier, e.RateLimiter)
+			//if end {
+			//	fmt.Println("\nbegin next date...")
+			//	time.Sleep(5 * time.Second)
+			//	completed <- true
+			//}
 
 			// this is save to database
 			go func() {
@@ -113,7 +114,7 @@ start:
 				}
 				if end {
 					fmt.Println("\nbegin next date...")
-					time.Sleep(5 * time.Second)
+					time.Sleep(2 * time.Second)
 					completed <- true
 				}
 			}()

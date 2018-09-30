@@ -55,7 +55,6 @@ func TestNotFound(t *testing.T) {
 	for _, result := range parseResult.Items {
 		fmt.Println(result)
 	}
-	fmt.Println(parseResult)
 }
 
 func TestParseTime(t *testing.T) {
@@ -99,10 +98,51 @@ func TestParseCode(t *testing.T) {
 									`
 	code := ParseCityCode(raw)
 	fmt.Println(code)
+	code = ParseCityCode("")
+	fmt.Println(code)
 }
 
 func TestParsePreFlightInfo(t *testing.T) {
 	text := "前序航班MU5124[PEK到SHA]，已于20:55到达"
 	info := ParsePreFlightInfo(text)
 	fmt.Println(info)
+}
+
+func TestF(t *testing.T) {
+	for i := 1; i <= 10; i++ {
+		fmt.Printf("f(%d)=%d\n", i, f(i))
+	}
+}
+
+func TestParseMultiFlight(t *testing.T) {
+	contents, err := ioutil.ReadFile("./testdata/MU5696_2018-09-30.html")
+	if err != nil {
+		t.Errorf("read test data fail: %v", err)
+	}
+
+	parseResult, err := ParseDetail(contents)
+	if err != nil {
+		t.Errorf("parse error: %v", err)
+	}
+	for _, result := range parseResult.Items {
+		fmt.Println(result)
+	}
+}
+
+func TestParseDuration(t *testing.T) {
+	fmt.Println(ParseDuration("1小时20分"))
+	fmt.Println(ParseDuration("1小时45分"))
+	fmt.Println(ParseDuration("1小时50分"))
+	fmt.Println(ParseDuration("2小时5分"))
+	fmt.Println(ParseDuration("2小时0分"))
+	fmt.Println(ParseDuration("50分"))
+}
+
+func TestAddDuration(t *testing.T) {
+	fmt.Println(addduration("20分", "1小时0分"))
+	fmt.Println(addduration("1小时20分", "20分"))
+	fmt.Println(addduration("1小时0分", "3小时59分"))
+	fmt.Println(addduration("2小时20分", "1小时59分"))
+	fmt.Println(addduration("20分", "40分"))
+	fmt.Println(addduration("20分", "30分"))
 }

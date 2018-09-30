@@ -74,15 +74,15 @@ func Print(result types.ParseResult, notifier types.PrintNotifier,
 func Save(result types.ParseResult, foreign bool, notifier types.PrintNotifier, limiter types.RateLimiter) (
 	parser.FlightListData, bool, error) {
 
-	//create table to save result
-	date := strings.Replace(result.Request.RawParam.Date, "-", "", -1)[0:6]
-
-	// 表名，默认为国内表
-	tablename := "dbo.FutureList"
+	// 表名前缀，默认为国内表
+	tableprefix := "FutureList"
 	if foreign {
-		tablename = "dbo.ForeignFutureList"
+		// 国际航班对应的表前缀
+		tableprefix = "ForeignFutureList"
 	}
-	_, err := db.Exec("sp_createFutureListTable", sql.Named("tablename", tablename+"_"+date))
+	tabledate := strings.Replace(result.Request.RawParam.Date, "-", "", -1)[0:6]
+
+	_, err := db.Exec("sp_createFutureListTable", sql.Named("tablename", tableprefix+"_"+tabledate))
 	if err != nil {
 		panic(err)
 	}
@@ -92,18 +92,27 @@ func Save(result types.ParseResult, foreign bool, notifier types.PrintNotifier, 
 		data := item.(parser.FlightListData)
 		split := strings.Split(data.Airport, "/")
 
-		_, err := db.Exec("insert into " + tablename + "_" + date +
-			"(dep,arr,date,flightNo,flightName,flightState,depPlanTime,arrPlanTime,depActualTime," +
-			"arrActualTime,depPort,arrPort,createAt)" +
-			" values ('" + result.Request.RawParam.Dep + "', '" + result.Request.RawParam.Arr + "', '" + result.Request.RawParam.Date +
-			"', '" + data.FlightNo + "', '" + data.FlightCompany + "', '" + data.State +
-			"', '" + (result.Request.RawParam.Date + " " + data.DepTimePlan) +
-			"', '" + fixarrdate(result.Request.RawParam.Date, data.DepTimePlan, data.ArrTimePlan) +
-			"', '" + strings.Replace(data.DepTimeActual, "-", "", -1) +
-			"', '" + strings.Replace(data.ArrTimeActual, "-", "", -1) +
-			"', '" + strings.Replace(split[0], "-", "", -1) +
-			"', '" + strings.Replace(split[1], "-", "", -1) +
-			"', '" + time.Now().Format("2006-01-02 15:04:05") + "')")
+		_, err := db.Exec(fmt.Sprintf("insert into [dbo].[%s_%s]"+
+			"(dep,arr,date,"+
+			"flightNo,flightName,flightState,"+
+			"depPlanTime,arrPlanTime,depActualTime,arrActualTime,"+
+			"depPort,arrPort,createAt)"+
+			" values"+
+			"('%s','%s','%s',"+
+			"'%s','%s','%s',"+
+			"'%s','%s','%s','%s',"+
+			"'%s','%s','%s')", tableprefix, tabledate,
+			result.Request.RawParam.Dep,
+			result.Request.RawParam.Arr,
+			result.Request.RawParam.Date,
+			data.FlightNo, data.FlightCompany, data.State,
+			(result.Request.RawParam.Date + " " + data.DepTimePlan),
+			fixarrdate(result.Request.RawParam.Date, data.DepTimePlan, data.ArrTimePlan),
+			strings.Replace(data.DepTimeActual, "-", "", -1),
+			strings.Replace(data.ArrTimeActual, "-", "", -1),
+			strings.Replace(split[0], "-", "", -1),
+			strings.Replace(split[1], "-", "", -1),
+			time.Now().Format("2006-01-02 15:04:05")))
 		if err != nil {
 			return data, false, err
 		}
