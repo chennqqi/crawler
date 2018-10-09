@@ -1,10 +1,11 @@
-package engine
+package inter
 
 import (
 	"time"
 
 	"fmt"
 
+	"github.com/champkeh/crawler/common"
 	"github.com/champkeh/crawler/fetcher"
 	"github.com/champkeh/crawler/notifier"
 	"github.com/champkeh/crawler/persist"
@@ -19,19 +20,15 @@ var (
 	LogFile = "realtime.log"
 )
 
-func init() {
-	// 确保日志文件存在
-	utils.MustExist(LogFile)
-}
-
 // RealTimeEngine
 //
 // 这个引擎用于爬取实时航班数据
 type RealTimeEngine struct {
-	Scheduler     types.Scheduler
-	PrintNotifier types.PrintNotifier
-	RateLimiter   types.RateLimiter
-	WorkerCount   int
+	Scheduler            types.Scheduler
+	PrintNotifier        types.PrintNotifier
+	RateLimiter          types.RateLimiter
+	WorkerCount          int
+	OtherSourceScheduler *scheduler.OtherSourceScheduler
 }
 
 // DefaultRealTimeEngine
@@ -40,16 +37,20 @@ type RealTimeEngine struct {
 var DefaultRealTimeEngine = RealTimeEngine{
 	Scheduler: &scheduler.SimpleScheduler{},
 	PrintNotifier: &notifier.ConsolePrintNotifier{
-		RateLimiter: rateLimiter,
+		RateLimiter: common.RateLimiter,
 	},
-	RateLimiter: rateLimiter,
-	WorkerCount: 100,
+	RateLimiter:          common.RateLimiter,
+	WorkerCount:          100,
+	OtherSourceScheduler: &scheduler.OtherSourceScheduler{},
 }
 
 // Run
 //
 // 启动实时抓取引擎
 func (e RealTimeEngine) Run() {
+
+	// 确保日志文件存在
+	utils.MustExist(LogFile)
 
 	// 实时抓取请求的容器
 	reqChannel := make(chan types.Request, 5000)
@@ -77,6 +78,7 @@ func (e RealTimeEngine) Run() {
 	}()
 
 	e.Scheduler.ConfigureRequestChan(reqChannel)
+	e.OtherSourceScheduler.ConfigureRequestChan(make(chan types.Request, 1000))
 
 	// configure scheduler's out channel, has 100 space buffer channel
 	out := make(chan types.ParseResult, 1000)
@@ -88,6 +90,7 @@ func (e RealTimeEngine) Run() {
 
 	// run the rate-limiter
 	go e.RateLimiter.Run()
+	go e.OtherSourceScheduler.Run()
 
 	for {
 		select {
@@ -99,7 +102,7 @@ func (e RealTimeEngine) Run() {
 				if finished == false {
 					// 任务未完成
 					// todo: 正常的航班也有可能状态突然变成暂无，因此需要考虑这种情况
-					if status == "暂无" && result.Request.FetchCount <= 50 {
+					if status == "暂无" && result.Request.FetchCount <= 10 {
 						// 暂无状态的航班，10分钟之后再次请求
 						time.Sleep(10 * time.Minute)
 						result.Request.FetchCount++
@@ -117,6 +120,9 @@ func (e RealTimeEngine) Run() {
 								time.Now().Format("2006-01-02 15:04:05"),
 								result.Request.RawParam.Date, result.Request.RawParam.Fno,
 								result.Request.FetchCount))
+
+						// todo: 需要使用备用源进行查询
+						e.OtherSourceScheduler.Submit(result.Request)
 					} else {
 						// 中间状态的航班，5分钟之后继续监测
 						time.Sleep(5 * time.Minute)
@@ -134,9 +140,10 @@ func (e RealTimeEngine) Run() {
 					// 任务完成
 					// note: 此处需要判断 status 是否为完成状态。如果 status 为空，则有可能是此处请求失败，
 					// 需要重新请求
-					if status == "" {
+					if status == "" && result.Request.FetchCount <= 10 {
 						// 不确定是否结束，继续添加到队列
-						time.Sleep(5 * time.Minute)
+						time.Sleep(10 * time.Minute)
+						result.Request.FetchCount++
 						e.Scheduler.Submit(result.Request)
 
 						utils.AppendToFile(LogFile,
@@ -144,6 +151,16 @@ func (e RealTimeEngine) Run() {
 								time.Now().Format("2006-01-02 15:04:05"),
 								result.Request.RawParam.Date, result.Request.RawParam.Fno,
 								result.Request.FetchCount))
+					} else if status == "" {
+						// 如果连续出现暂无次数大于50，则不再检测
+						utils.AppendToFile(LogFile,
+							fmt.Sprintf("==3:[%s]ignore no status entry [%s:%s %d]\n",
+								time.Now().Format("2006-01-02 15:04:05"),
+								result.Request.RawParam.Date, result.Request.RawParam.Fno,
+								result.Request.FetchCount))
+
+						// todo: 需要使用备用源进行查询
+						e.OtherSourceScheduler.Submit(result.Request)
 					} else {
 						// 确认结束，无操作
 						utils.AppendToFile(LogFile,
@@ -156,23 +173,6 @@ func (e RealTimeEngine) Run() {
 			}(finished, status, result)
 		}
 	}
-}
-
-func (e RealTimeEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
-	body, err := fetcher.Fetch(r.Url, e.RateLimiter)
-	if err != nil {
-		log.Warnf("Fetcher: error fetching url %s: %v", r.Url, err)
-		return types.ParseResult{}, err
-	}
-
-	result, err := r.ParserFunc(body)
-	if err != nil {
-		log.Warnf("parse (%s:%s) error: %v", r.RawParam.Date, r.RawParam.Fno, err)
-		return types.ParseResult{}, err
-	}
-
-	result.Request = r
-	return result, nil
 }
 
 func (e RealTimeEngine) CreateFetchWorker(in chan types.Request, out chan types.ParseResult) {
@@ -198,7 +198,7 @@ func (e RealTimeEngine) CreateFetchWorker(in chan types.Request, out chan types.
 						request.RawParam.Date, request.RawParam.Fno, request.FetchCount))
 			}
 
-			parseResult, err := e.fetchWorker(request)
+			parseResult, err := fetcher.FetchWorker(request, e.RateLimiter)
 			if err != nil {
 				// fetch request failed, submit this request to scheduler to fetch
 				// later again.

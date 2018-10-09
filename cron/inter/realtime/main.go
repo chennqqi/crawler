@@ -18,7 +18,7 @@ import (
 // copy-init-data-to-realtime
 func main() {
 	// 打开数据库连接
-	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=60",
+	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s",
 		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightData")
 	db, err := sql.Open("sqlserver", connstr)
 	if err != nil {

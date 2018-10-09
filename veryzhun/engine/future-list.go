@@ -1,15 +1,13 @@
-package foreign
+package engine
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"log"
-
 	"time"
 
-	"fmt"
-
-	"encoding/json"
-	"io/ioutil"
-
+	"github.com/champkeh/crawler/common"
 	"github.com/champkeh/crawler/fetcher"
 	"github.com/champkeh/crawler/notifier"
 	"github.com/champkeh/crawler/persist"
@@ -18,20 +16,20 @@ import (
 	"github.com/champkeh/crawler/types"
 )
 
-// 国外机场列表获取引擎
-type SimpleEngine struct {
+// FutureListEngine 是抓取飞常准未来航班列表的引擎
+type FutureListEngine struct {
 	Scheduler     types.Scheduler
 	PrintNotifier types.PrintNotifier
 	RateLimiter   types.RateLimiter
 	WorkerCount   int
 }
 
-var DefaultSimpleEngine = SimpleEngine{
+var DefaultFutureListEngine = FutureListEngine{
 	Scheduler: &scheduler.SimpleScheduler{},
 	PrintNotifier: &notifier.ConsolePrintNotifier{
-		RateLimiter: rateLimiter,
+		RateLimiter: common.RateLimiter,
 	},
-	RateLimiter: rateLimiter,
+	RateLimiter: common.RateLimiter,
 	WorkerCount: 100,
 }
 
@@ -39,16 +37,16 @@ type DateConfig struct {
 	Date string `json:"date"`
 }
 
-func (e SimpleEngine) Run() {
+func (e FutureListEngine) Run() {
 
 	contents, err := ioutil.ReadFile("./config.json")
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("read config file error: %s", err))
 	}
 	var config DateConfig
 	err = json.Unmarshal(contents, &config)
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("parse config.json error: %s", err))
 	}
 
 	start, err := time.Parse("2006-01-02", config.Date)
@@ -65,9 +63,9 @@ start:
 	// 获取新的日期
 	date := start.Format("2006-01-02")
 	// generate airport seed
-	airports, err := seeds.PullForeignAirportList()
+	airports, err := seeds.PullAirportList()
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("seeds.PullAirportList error: %s", err))
 	}
 
 	// configure scheduler's in channel
@@ -88,10 +86,10 @@ start:
 	// run the rate-limiter
 	go e.RateLimiter.Run()
 
-	timer := time.NewTimer(5 * time.Minute)
+	timer := time.NewTimer(3 * time.Minute)
 	completed := make(chan bool)
 	for {
-		timer.Reset(5 * time.Minute)
+		timer.Reset(3 * time.Minute)
 
 		// when all result have been handled, this will blocked forever.
 		// so, here use `select` to avoid this problem.
@@ -101,20 +99,21 @@ start:
 			// not save to database.
 			//end := persist.Print(result, e.PrintNotifier, e.RateLimiter)
 			//if end {
-			//	fmt.Println("\nbegin next date...")
+			//	close(reqChannel)
+			//	fmt.Println("begin next date")
 			//	time.Sleep(5 * time.Second)
 			//	completed <- true
 			//}
 
 			// this is save to database
 			go func() {
-				data, end, err := persist.Save(result, true, e.PrintNotifier, e.RateLimiter)
+				data, end, err := persist.Save(result, false, e.PrintNotifier, e.RateLimiter)
 				if err != nil {
 					log.Printf("\nsave %v error: %v\n", data, err)
 				}
 				if end {
 					fmt.Println("\nbegin next date...")
-					time.Sleep(2 * time.Second)
+					time.Sleep(5 * time.Second)
 					completed <- true
 				}
 			}()
@@ -129,7 +128,7 @@ start:
 	}
 }
 
-func (e SimpleEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
+func (e FutureListEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 	body, err := fetcher.Fetch(r.Url, e.RateLimiter)
 	if err != nil {
 		log.Printf("\nFetcher: error fetching url %s: %v\n", r.Url, err)
@@ -141,13 +140,14 @@ func (e SimpleEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 	if err != nil {
 		log.Printf("parse (%s:%s->%s) error: %v\n",
 			r.RawParam.Date, r.RawParam.Dep, r.RawParam.Arr, err)
+		return types.ParseResult{}, err
 	}
 	result.Request = r
 
 	return result, nil
 }
 
-func (e SimpleEngine) CreateFetchWorker(in chan types.Request, out chan types.ParseResult) {
+func (e FutureListEngine) CreateFetchWorker(in chan types.Request, out chan types.ParseResult) {
 	go func() {
 		for {
 			request, ok := <-in

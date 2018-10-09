@@ -1,4 +1,4 @@
-package engine
+package inter
 
 import (
 	"log"
@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 
+	"github.com/champkeh/crawler/common"
 	"github.com/champkeh/crawler/fetcher"
 	"github.com/champkeh/crawler/notifier"
 	"github.com/champkeh/crawler/persist"
@@ -28,9 +29,9 @@ type SimpleEngine struct {
 var DefaultSimpleEngine = SimpleEngine{
 	Scheduler: &scheduler.SimpleScheduler{},
 	PrintNotifier: &notifier.ConsolePrintNotifier{
-		RateLimiter: rateLimiter,
+		RateLimiter: common.RateLimiter,
 	},
-	RateLimiter: rateLimiter,
+	RateLimiter: common.RateLimiter,
 	WorkerCount: 100,
 }
 
@@ -42,12 +43,12 @@ func (e SimpleEngine) Run() {
 
 	contents, err := ioutil.ReadFile("./config.json")
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("read config file error: %s", err))
 	}
 	var config DateConfig
 	err = json.Unmarshal(contents, &config)
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("parse config.json error: %s", err))
 	}
 
 	start, err := time.Parse("2006-01-02", config.Date)
@@ -66,7 +67,7 @@ start:
 	// generate airport seed
 	airports, err := seeds.PullAirportList()
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("seeds.PullAirportList error: %s", err))
 	}
 
 	// configure scheduler's in channel
@@ -141,6 +142,7 @@ func (e SimpleEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 	if err != nil {
 		log.Printf("parse (%s:%s->%s) error: %v\n",
 			r.RawParam.Date, r.RawParam.Dep, r.RawParam.Arr, err)
+		return types.ParseResult{}, err
 	}
 	result.Request = r
 

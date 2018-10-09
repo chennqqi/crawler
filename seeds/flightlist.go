@@ -29,7 +29,7 @@ var (
 func PullFlightListAt(date string, foreign bool) (chan Flight, error) {
 
 	// connect sql server
-	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=60",
+	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s",
 		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightData")
 	db, err := sql.Open("sqlserver", connstr)
 	if err != nil {

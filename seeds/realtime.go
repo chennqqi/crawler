@@ -16,7 +16,7 @@ import (
 // 从 RealTime 表中拉取数据
 func PullLatestFlight(container chan types.Request, launch bool) error {
 	// 打开数据库连接
-	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=60",
+	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s",
 		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightData")
 	db, err := sql.Open("sqlserver", connstr)
 	if err != nil {

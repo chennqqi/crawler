@@ -22,14 +22,14 @@ var (
 func PullAirportList() (chan types.Airport, error) {
 
 	// 从基础数据库中查所有机场三字码组合
-	db, err := sql.Open("sqlserver", fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=60",
+	db, err := sql.Open("sqlserver", fmt.Sprintf("sqlserver://%s:%s@%s?database=%s",
 		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightBaseData"))
 	if err != nil {
 		return nil, err
 	}
 
 	// query total airports to fetch
-	row := db.QueryRow(`select count(*) from dbo.Inf_AirportSTD a
+	row := db.QueryRow(`select count(1) from dbo.Inf_AirportSTD a
 				join dbo.Inf_AirportSTD b on a.CityCode != b.CityCode`)
 	err = row.Scan(&TotalAirports)
 	if err != nil {
@@ -64,10 +64,10 @@ func PullAirportList() (chan types.Airport, error) {
 	return ch, nil
 }
 
-// 拉取国外航班的机场三字码组合
+// 拉取国际航班的机场三字码组合
 func PullForeignAirportList() (chan types.Airport, error) {
 	// 从基础数据库中查所有机场三字码组合
-	db, err := sql.Open("sqlserver", fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=60",
+	db, err := sql.Open("sqlserver", fmt.Sprintf("sqlserver://%s:%s@%s?database=%s",
 		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightBaseData"))
 	if err != nil {
 		return nil, err
@@ -117,7 +117,7 @@ func AirportRequestFilter(airports chan types.Airport, date string) chan types.R
 
 	// because this channel is used for scheduler's in-channel, which will be snatched
 	// by 100 workers (goroutine), so set 100 buffer space is better.
-	requests := make(chan types.Request, 100)
+	requests := make(chan types.Request, 1000)
 
 	go func() {
 		for airport := range airports {
@@ -134,11 +134,6 @@ func AirportRequestFilter(airports chan types.Airport, date string) chan types.R
 				ParserFunc: parser.ParseList,
 			}
 		}
-
-		// can not close this channel, because this channel is used for scheduler's
-		// in-channel which the failed request (status code is 500) would resend to
-		// it to fetch again.
-		//close(requests)
 	}()
 
 	return requests

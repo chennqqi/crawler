@@ -13,10 +13,11 @@ import (
 // cron 计划任务
 //
 // 检查检查
+// health-check
 func main() {
 
 	// 连接到 FlightData 数据库
-	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=10",
+	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s",
 		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightData")
 	db, err := sql.Open("sqlserver", connstr)
 	if err != nil {

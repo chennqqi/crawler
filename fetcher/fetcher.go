@@ -6,18 +6,15 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"time"
-
-	"net/url"
-
-	types2 "github.com/champkeh/crawler/proxy/types"
 	"github.com/champkeh/crawler/proxy/verifier"
 	"github.com/champkeh/crawler/types"
 )
 
 func Fetch(url string, rateLimiter types.RateLimiter) ([]byte, error) {
 	// limit fetch rate
-	rateLimiter.Wait()
+	if rateLimiter != nil {
+		rateLimiter.Wait()
+	}
 
 	request, _ := http.NewRequest("GET", url, nil)
 
@@ -27,7 +24,7 @@ func Fetch(url string, rateLimiter types.RateLimiter) ([]byte, error) {
 
 	resp, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(fmt.Sprintf("fetch %s error: %s", url, err))
 	}
 	defer resp.Body.Close()
 
@@ -38,38 +35,17 @@ func Fetch(url string, rateLimiter types.RateLimiter) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
-func FetchWithProxy(url2 string, rateLimiter types.RateLimiter, proxyIP types2.ProxyIP) ([]byte, error) {
-	// limit fetch rate
-	rateLimiter.Wait()
-
-	request, _ := http.NewRequest("GET", url2, nil)
-
-	request.Header.Set("User-Agent", verifier.GetAgent())
-	request.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-	request.Header.Set("Connection", "keep-alive")
-	request.Header.Set("Proxy-Connection", "keep-alive")
-
-	proxy, err := url.Parse(fmt.Sprintf("http://%s:%d", proxyIP.IP, proxyIP.Port))
+func FetchWorker(req types.Request, rateLimiter types.RateLimiter) (types.ParseResult, error) {
+	body, err := Fetch(req.Url, rateLimiter)
 	if err != nil {
-		panic(err)
+		return types.ParseResult{}, errors.New(fmt.Sprintf("fetch error: %s", err))
 	}
 
-	client := &http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyURL(proxy),
-		},
-		Timeout: time.Duration(60 * time.Second),
-	}
-
-	resp, err := client.Do(request)
+	result, err := req.ParserFunc(body)
 	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New(fmt.Sprintf("http: wrong status code:%d", resp.StatusCode))
+		return types.ParseResult{}, errors.New(fmt.Sprintf("parse (%s:%s) error: %s", req.RawParam.Date, req.RawParam.Fno, err))
 	}
 
-	return ioutil.ReadAll(resp.Body)
+	result.Request = req
+	return result, nil
 }

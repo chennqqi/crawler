@@ -56,7 +56,7 @@ func PrintDetail(result types.ParseResult, notifier types.PrintNotifier,
 func init() {
 	var err error
 	// 连接到 FlightData 数据库
-	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=60",
+	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s",
 		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightData")
 	db, err = sql.Open("sqlserver", connstr)
 	if err != nil {
@@ -103,6 +103,19 @@ func SaveDetail(result types.ParseResult, foreign bool, notifier types.PrintNoti
 	var itemCount = 0
 	for _, item := range result.Items {
 		data := item.(parser.FlightDetailData)
+
+		// 确保不会重复插入
+		existCount := 0
+		db.QueryRow(fmt.Sprintf(
+			"select count(1) from [dbo].[%s_%s] "+
+				"where flightNo='%s' and date='%s' and depCode='%s' and arrCode='%s'",
+			tableprefix, tabledate,
+			data.FlightNo, data.FlightDate, data.DepCode, data.ArrCode)).Scan(&existCount)
+
+		if existCount == 1 {
+			// 已经存在了，跳过
+			continue
+		}
 
 		// 解析起降时间
 		depPlanTime := utils.Code2Time(data.DepPlanTime)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/champkeh/crawler/common"
 	"github.com/champkeh/crawler/fetcher"
 	"github.com/champkeh/crawler/notifier"
 	"github.com/champkeh/crawler/persist"
@@ -30,11 +31,11 @@ type FutureEngine struct {
 var DefaultFutureEngine = FutureEngine{
 	Scheduler: &scheduler.SimpleScheduler{},
 	PrintNotifier: &notifier.ConsolePrintNotifier{
-		RateLimiter: rateLimiter,
+		RateLimiter: common.RateLimiter,
 	},
 
 	// 采用全局的 rateLimiter
-	RateLimiter: rateLimiter,
+	RateLimiter: common.RateLimiter,
 	WorkerCount: 100,
 }
 

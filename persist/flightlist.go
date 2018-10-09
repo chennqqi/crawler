@@ -24,7 +24,7 @@ func init() {
 	var err error
 
 	// 连接到 FlightData 数据库
-	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s&connection+timeout=10",
+	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s",
 		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightData")
 	db, err = sql.Open("sqlserver", connstr)
 	if err != nil {
@@ -92,7 +92,20 @@ func Save(result types.ParseResult, foreign bool, notifier types.PrintNotifier, 
 		data := item.(parser.FlightListData)
 		split := strings.Split(data.Airport, "/")
 
-		_, err := db.Exec(fmt.Sprintf("insert into [dbo].[%s_%s]"+
+		// 确保不会重复
+		existCount := 0
+		db.QueryRow(fmt.Sprintf(
+			"select count(1) from [dbo].[%s_%s] "+
+				"where dep='%s' and arr='%s' and date='%s' and flightNo='%s'",
+			tableprefix, tabledate,
+			result.Request.RawParam.Dep, result.Request.RawParam.Arr, result.Request.RawParam.Date,
+			data.FlightNo)).Scan(&existCount)
+
+		if existCount == 1 {
+			// 已经存在了，跳过
+			continue
+		}
+		_, err = db.Exec(fmt.Sprintf("insert into [dbo].[%s_%s]"+
 			"(dep,arr,date,"+
 			"flightNo,flightName,flightState,"+
 			"depPlanTime,arrPlanTime,depActualTime,arrActualTime,"+
