@@ -24,11 +24,10 @@ var (
 //
 // 这个引擎用于爬取实时航班数据
 type RealTimeEngine struct {
-	Scheduler            types.Scheduler
-	PrintNotifier        types.PrintNotifier
-	RateLimiter          types.RateLimiter
-	WorkerCount          int
-	OtherSourceScheduler *scheduler.OtherSourceScheduler
+	Scheduler     types.Scheduler
+	PrintNotifier types.PrintNotifier
+	RateLimiter   types.RateLimiter
+	WorkerCount   int
 }
 
 // DefaultRealTimeEngine
@@ -39,9 +38,8 @@ var DefaultRealTimeEngine = RealTimeEngine{
 	PrintNotifier: &notifier.ConsolePrintNotifier{
 		RateLimiter: common.RateLimiter,
 	},
-	RateLimiter:          common.RateLimiter,
-	WorkerCount:          100,
-	OtherSourceScheduler: &scheduler.OtherSourceScheduler{},
+	RateLimiter: common.RateLimiter,
+	WorkerCount: 100,
 }
 
 // Run
@@ -78,7 +76,6 @@ func (e RealTimeEngine) Run() {
 	}()
 
 	e.Scheduler.ConfigureRequestChan(reqChannel)
-	e.OtherSourceScheduler.ConfigureRequestChan(make(chan types.Request, 1000))
 
 	// configure scheduler's out channel, has 100 space buffer channel
 	out := make(chan types.ParseResult, 1000)
@@ -90,7 +87,6 @@ func (e RealTimeEngine) Run() {
 
 	// run the rate-limiter
 	go e.RateLimiter.Run()
-	go e.OtherSourceScheduler.Run()
 
 	for {
 		select {
@@ -122,7 +118,7 @@ func (e RealTimeEngine) Run() {
 								result.Request.FetchCount))
 
 						// todo: 需要使用备用源进行查询
-						e.OtherSourceScheduler.Submit(result.Request)
+
 					} else {
 						// 中间状态的航班，5分钟之后继续监测
 						time.Sleep(5 * time.Minute)
@@ -160,7 +156,7 @@ func (e RealTimeEngine) Run() {
 								result.Request.FetchCount))
 
 						// todo: 需要使用备用源进行查询
-						e.OtherSourceScheduler.Submit(result.Request)
+
 					} else {
 						// 确认结束，无操作
 						utils.AppendToFile(LogFile,

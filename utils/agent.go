@@ -1,4 +1,4 @@
-package verifier
+package utils
 
 import (
 	"math/rand"
@@ -6,12 +6,8 @@ import (
 )
 
 var (
-	r = rand.New(rand.NewSource(time.Now().UnixNano()))
-)
-
-// 随机返回一个User-Agent
-func GetAgent() string {
-	agent := [...]string{
+	r     = rand.New(rand.NewSource(time.Now().UnixNano()))
+	agent = [...]string{
 		"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36",
 		"Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Mobile Safari/537.36",
 		"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:17.0; Baiduspider-ads) Gecko/17.0 Firefox/17.0",
@@ -21,8 +17,12 @@ func GetAgent() string {
 		"Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/45.0.2454.99 Safari/537.36",
 		"Mozilla/5.0 (Windows NT 6.3; Win64; x64; Trident/7.0; Touch; LCJB; rv:11.0) like Gecko",
 		"Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2454.101 Safari/537.36",
+		"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36",
 	}
+)
 
-	len := len(agent)
-	return agent[r.Intn(len)]
+// 随机返回一个User-Agent
+func GetAgent() string {
+	agentCount := len(agent)
+	return agent[r.Intn(agentCount)]
 }
