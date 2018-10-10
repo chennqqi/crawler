@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/champkeh/crawler/config"
+	"github.com/champkeh/crawler/datasource/umetrip/parser"
 	"github.com/champkeh/crawler/seeds"
 	"github.com/champkeh/crawler/types"
-	"github.com/champkeh/crawler/umetrip/parser"
 	"github.com/champkeh/crawler/utils"
 	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/labstack/gommon/log"

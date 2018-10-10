@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/champkeh/crawler/config"
-	"github.com/champkeh/crawler/umetrip/parser"
+	"github.com/champkeh/crawler/datasource/umetrip/parser"
 	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/labstack/gommon/log"
 )

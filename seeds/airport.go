@@ -8,8 +8,8 @@ import (
 	"fmt"
 
 	"github.com/champkeh/crawler/config"
+	"github.com/champkeh/crawler/datasource/umetrip/parser"
 	"github.com/champkeh/crawler/types"
-	"github.com/champkeh/crawler/umetrip/parser"
 	_ "github.com/denisenkom/go-mssqldb"
 )
 

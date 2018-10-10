@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/champkeh/crawler/umetrip/engine/inter"
+	"github.com/champkeh/crawler/datasource/umetrip/engine/inter"
 )
 
 func main() {
