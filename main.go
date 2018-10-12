@@ -1,8 +1,6 @@
 package main
 
-import (
-	"github.com/champkeh/crawler/datasource/umetrip/engine/inter"
-)
+import "github.com/champkeh/crawler/datasource/ctrip/engine"
 
 func main() {
 	// 国内未来1天的航班详情
@@ -11,11 +9,11 @@ func main() {
 
 	// 国内航班实时抓取引擎
 	// file: realtime-engine
-	inter.DefaultRealTimeEngine.Run()
+	//inter.DefaultRealTimeEngine.Run()
 
 	// 国内未来航班列表
 	// file: internal-list-engine
-	//engine.DefaultSimpleEngine.Run()
+	//inter.DefaultSimpleEngine.Run()
 
 	// 国际未来1天的航班详情
 	// file: fetch-future-detail
@@ -24,4 +22,6 @@ func main() {
 	// 国际未来航班列表
 	// file: foreign-list-engine
 	//foreign.DefaultSimpleEngine.Run()
+
+	engine.DefaultCtripListEngine.Run()
 }

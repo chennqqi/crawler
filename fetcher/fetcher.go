@@ -13,7 +13,7 @@ import (
 	"github.com/champkeh/crawler/utils"
 )
 
-func Fetch(url string, rateLimiter types.RateLimiter) ([]byte, error) {
+func Fetch(url string, referer string, rateLimiter types.RateLimiter) ([]byte, error) {
 	// limit fetch rate
 	if rateLimiter != nil {
 		rateLimiter.Wait()
@@ -22,8 +22,7 @@ func Fetch(url string, rateLimiter types.RateLimiter) ([]byte, error) {
 	request, _ := http.NewRequest("GET", url, nil)
 
 	request.Header.Set("User-Agent", utils.GetAgent())
-	request.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-	request.Header.Set("Referer", "https://www.baidu.com/")
+	request.Header.Set("Referer", referer)
 	request.Header.Set("Connection", "keep-alive")
 
 	resp, err := http.DefaultClient.Do(request)
@@ -33,14 +32,14 @@ func Fetch(url string, rateLimiter types.RateLimiter) ([]byte, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New(fmt.Sprintf("http: wrong status code:%d", resp.StatusCode))
+		return nil, errors.New(fmt.Sprintf("fetch %s got wrong status code:%d", url, resp.StatusCode))
 	}
 
 	return ioutil.ReadAll(resp.Body)
 }
 
 func FetchWorker(req types.Request, rateLimiter types.RateLimiter) (types.ParseResult, error) {
-	body, err := Fetch(req.Url, rateLimiter)
+	body, err := Fetch(req.Url, "http://www.baidu.com/", rateLimiter)
 	if err != nil {
 		return types.ParseResult{}, errors.New(fmt.Sprintf("fetch error: %s", err))
 	}

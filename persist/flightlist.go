@@ -108,23 +108,22 @@ func Save(result types.ParseResult, foreign bool, notifier types.PrintNotifier, 
 		_, err = db.Exec(fmt.Sprintf("insert into [dbo].[%s_%s]"+
 			"(dep,arr,date,"+
 			"flightNo,flightName,flightState,"+
-			"depPlanTime,arrPlanTime,depActualTime,arrActualTime,"+
-			"depPort,arrPort,createAt)"+
+			"depPlanTime,arrPlanTime,"+
+			"depPort,arrPort,source,createAt)"+
 			" values"+
 			"('%s','%s','%s',"+
 			"'%s','%s','%s',"+
-			"'%s','%s','%s','%s',"+
-			"'%s','%s','%s')", tableprefix, tabledate,
+			"'%s','%s',"+
+			"'%s','%s','%s','%s')", tableprefix, tabledate,
 			result.Request.RawParam.Dep,
 			result.Request.RawParam.Arr,
 			result.Request.RawParam.Date,
 			data.FlightNo, data.FlightCompany, data.State,
 			(result.Request.RawParam.Date + " " + data.DepTimePlan),
 			fixarrdate(result.Request.RawParam.Date, data.DepTimePlan, data.ArrTimePlan),
-			strings.Replace(data.DepTimeActual, "-", "", -1),
-			strings.Replace(data.ArrTimeActual, "-", "", -1),
 			strings.Replace(split[0], "-", "", -1),
 			strings.Replace(split[1], "-", "", -1),
+			"umetrip",
 			time.Now().Format("2006-01-02 15:04:05")))
 		if err != nil {
 			return data, false, err

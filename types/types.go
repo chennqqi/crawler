@@ -11,6 +11,13 @@ type Scheduler interface {
 	ConfigureRequestChan(chan Request)
 }
 
+type CtripScheduler interface {
+	Submit1(CtripListRequest1)
+	Submit2(CtripListRequest2)
+	ConfigureRequest1Chan(chan CtripListRequest1)
+	ConfigureRequest2Chan(chan CtripListRequest2)
+}
+
 type PrintNotifier interface {
 	Runner
 
@@ -44,6 +51,22 @@ type Request struct {
 	FetchCount int64
 	Url        string
 	ParserFunc func([]byte) (ParseResult, error)
+}
+
+type CtripListRequest1 struct {
+	RawParam   Param
+	FetchCount int64
+	Url        string
+	ParserFunc func([]byte) (string, error)
+	SearchKey  string
+}
+
+type CtripListRequest2 struct {
+	RawParam   Param
+	FetchCount int64
+	Url        string
+	ParserFunc func([]byte) (ParseResult, error)
+	SearchKey  string
 }
 
 // ParseResult
