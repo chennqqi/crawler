@@ -83,7 +83,7 @@ func (e CtripListEngine) Run() {
 				db.QueryRow(fmt.Sprintf("select count(1) from [dbo].[%s_%s] "+
 					"where dep='%s' and arr='%s' and date='%s' and flightNo='%s'",
 					tableprefix, tabledate,
-					result.Request.RawParam.Dep, result.Request.RawParam.Arr, result.Request.RawParam.Date,
+					data.DAirportCode, data.AAirportCode, result.Request.RawParam.Date,
 					data.FlightNo)).Scan(&existCount)
 
 				if existCount == 0 {
@@ -103,8 +103,8 @@ func (e CtripListEngine) Run() {
 						"'%s','%s',"+
 						"'%s','%s')",
 						tableprefix, tabledate,
-						result.Request.RawParam.Dep,
-						result.Request.RawParam.Arr,
+						data.DAirportCode,
+						data.AAirportCode,
 						result.Request.RawParam.Date,
 						data.DCityName, data.ACityName, data.DAirportName, data.AAirportName,
 						data.FlightNo, data.CompanyShortName, data.Status,
@@ -126,8 +126,8 @@ func (e CtripListEngine) Run() {
 						data.DCityName, data.ACityName,
 						data.DAirportName, data.AAirportName,
 						time.Now().Format("2006-01-02 15:04:05"),
-						result.Request.RawParam.Dep,
-						result.Request.RawParam.Arr,
+						data.DAirportCode,
+						data.AAirportCode,
 						result.Request.RawParam.Date,
 						data.FlightNo))
 					if err != nil {
