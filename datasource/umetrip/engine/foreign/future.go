@@ -5,11 +5,12 @@ import (
 	"time"
 
 	"github.com/champkeh/crawler/common"
+	"github.com/champkeh/crawler/datasource/umetrip"
 	"github.com/champkeh/crawler/fetcher"
 	"github.com/champkeh/crawler/notifier"
 	"github.com/champkeh/crawler/persist"
 	"github.com/champkeh/crawler/scheduler"
-	"github.com/champkeh/crawler/seeds"
+	"github.com/champkeh/crawler/store"
 	"github.com/champkeh/crawler/types"
 	"github.com/labstack/gommon/log"
 )
@@ -49,14 +50,14 @@ func (e FutureEngine) Run() {
 	var date = time.Now().Add(24 * time.Hour).Format("2006-01-02")
 
 	// 从未来国际航班列表中拉取要抓取的航班列表
-	flightlist, err := seeds.PullFlightListAt(date, true)
+	flightlist, err := store.FlightListChanAt(date, true)
 	if err != nil {
 		panic(err)
 	}
 
 	// configure scheduler's in channel
 	// this filter will generate tomorrow flight request
-	reqChannel := seeds.FlightRequestFilter(flightlist)
+	reqChannel := umetrip.DetailRequest(flightlist)
 	e.Scheduler.ConfigureRequestChan(reqChannel)
 
 	// configure scheduler's out channel, has 100 space buffer channel
@@ -100,7 +101,7 @@ func (e FutureEngine) Run() {
 }
 
 func (e FutureEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
-	body, err := fetcher.Fetch(r.Url, e.RateLimiter)
+	body, err := fetcher.Fetch(r.Url, "", e.RateLimiter)
 	if err != nil {
 		log.Warnf("fetcher: error fetching url %s: %v", r.Url, err)
 		log.Warnf("Current Rate: %d", e.RateLimiter.Rate())

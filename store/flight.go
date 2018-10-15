@@ -1,23 +1,85 @@
-package seeds
+package store
 
 import (
 	"database/sql"
 	"fmt"
-
+	"log"
+	"strings"
 	"time"
 
 	"github.com/champkeh/crawler/config"
 	"github.com/champkeh/crawler/datasource/umetrip/parser"
 	"github.com/champkeh/crawler/types"
-	_ "github.com/denisenkom/go-mssqldb"
-	"github.com/labstack/gommon/log"
 )
+
+var (
+	// 交叉连接之后的航线总数
+	TotalFlight int
+)
+
+// date format: 2018-09-10
+// 从未来航班列表中拉取航班号，并加入到 channel 中返回
+func FlightListChanAt(date string, foreign bool) (chan types.FlightInfo, error) {
+
+	// connect sql server
+	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s", config.SqlUser, config.SqlPass, config.SqlHost,
+		"FlightData")
+	db, err := sql.Open("sqlserver", connstr)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	// query total flight to fetch
+	tableprefix := "FutureList"
+	if foreign {
+		tableprefix = "ForeignFutureList"
+	}
+	tabledate := strings.Replace(date, "-", "", -1)[0:6]
+
+	row := db.QueryRow(fmt.Sprintf("select count(1) from "+
+		"(select distinct date,flightNo from [dbo].[%s_%s] where date='%s') as temp",
+		tableprefix, tabledate, date))
+	err = row.Scan(&TotalFlight)
+	if err != nil {
+		return nil, err
+	}
+
+	// this channel is non-buffer channel, which means that send to this
+	// channel will be blocked if it has already value in it.
+	ch := make(chan types.FlightInfo)
+
+	go func() {
+		query := fmt.Sprintf("select distinct date,flightNo from [dbo].[%s_%s] where date='%s'",
+			tableprefix, tabledate, date)
+		rows, err := db.Query(query)
+		if err != nil {
+			panic(err)
+		}
+		defer rows.Close()
+
+		var flight types.FlightInfo
+		for rows.Next() {
+			err := rows.Scan(&flight.FlightDate, &flight.FlightNo)
+			if err != nil {
+				log.Printf("scan error: %v\n", err)
+				continue
+			}
+
+			// this will blocked until it's value have been taken by others.
+			ch <- flight
+		}
+		close(ch)
+	}()
+
+	return ch, nil
+}
 
 // 从 RealTime 表中拉取数据
 func PullLatestFlight(container chan types.Request, launch bool) error {
 	// 打开数据库连接
 	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s",
-		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightData")
+		config.SqlUser, config.SqlPass, config.SqlHost, "FlightData")
 	db, err := sql.Open("sqlserver", connstr)
 	if err != nil {
 		return err
@@ -49,11 +111,11 @@ func PullLatestFlight(container chan types.Request, launch bool) error {
 		}
 		defer rows.Close()
 
-		var flight Flight
+		var flight types.FlightInfo
 		for rows.Next() {
 			err := rows.Scan(&flight.FlightDate, &flight.FlightNo)
 			if err != nil {
-				log.Errorf("scan error: %v", err)
+				log.Printf("scan error: %v\n", err)
 				continue
 			}
 

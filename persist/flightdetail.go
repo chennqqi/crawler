@@ -12,7 +12,7 @@ import (
 
 	"github.com/champkeh/crawler/config"
 	"github.com/champkeh/crawler/datasource/umetrip/parser"
-	"github.com/champkeh/crawler/seeds"
+	"github.com/champkeh/crawler/store"
 	"github.com/champkeh/crawler/types"
 	"github.com/champkeh/crawler/utils"
 	_ "github.com/denisenkom/go-mssqldb"
@@ -36,14 +36,14 @@ func PrintDetail(result types.ParseResult, notifier types.PrintNotifier,
 		Date:        result.Request.RawParam.Date,
 		FlightCount: itemCount,
 		FlightSum:   FlightSum,
-		FlightTotal: seeds.TotalFlight,
-		Progress:    float32(100 * float64(FlightSum) / float64(seeds.TotalFlight)),
+		FlightTotal: store.TotalFlight,
+		Progress:    float32(100 * float64(FlightSum) / float64(store.TotalFlight)),
 		QPS:         limiter.QPS(),
 	}
 	notifier.Print(data)
 
 	// task is completed?
-	if FlightSum >= seeds.TotalFlight {
+	if FlightSum >= store.TotalFlight {
 		go func() {
 			// program exit after 5 seconds
 			fmt.Println("Completed! Program will exit after 5 seconds...")
@@ -55,9 +55,10 @@ func PrintDetail(result types.ParseResult, notifier types.PrintNotifier,
 
 func init() {
 	var err error
+
 	// 连接到 FlightData 数据库
-	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s",
-		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightData")
+	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s", config.SqlUser, config.SqlPass, config.SqlHost,
+		"FlightData")
 	db, err = sql.Open("sqlserver", connstr)
 	if err != nil {
 		panic(err)
@@ -166,14 +167,14 @@ func SaveDetail(result types.ParseResult, foreign bool, notifier types.PrintNoti
 		Date:        result.Request.RawParam.Date,
 		FlightCount: itemCount,
 		FlightSum:   FlightSum,
-		FlightTotal: seeds.TotalFlight,
-		Progress:    float32(100 * float64(FlightSum) / float64(seeds.TotalFlight)),
+		FlightTotal: store.TotalFlight,
+		Progress:    float32(100 * float64(FlightSum) / float64(store.TotalFlight)),
 		QPS:         limiter.QPS(),
 	}
 	notifier.Print(data)
 
 	// task is completed?
-	if FlightSum >= seeds.TotalFlight {
+	if FlightSum >= store.TotalFlight {
 		go func() {
 			// program exit after 5 seconds
 			fmt.Println("Completed! Program will exit after 5 seconds...")

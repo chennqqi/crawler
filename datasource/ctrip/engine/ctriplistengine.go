@@ -12,10 +12,13 @@ import (
 
 	"log"
 
+	"encoding/json"
+	"io/ioutil"
+
 	"github.com/champkeh/crawler/config"
 	"github.com/champkeh/crawler/datasource/ctrip/parser"
 	"github.com/champkeh/crawler/ratelimiter"
-	"github.com/champkeh/crawler/seeds"
+	"github.com/champkeh/crawler/store"
 	"github.com/champkeh/crawler/types"
 	_ "github.com/denisenkom/go-mssqldb"
 )
@@ -33,19 +36,18 @@ var DefaultCtripListEngine = CtripListEngine{
 }
 
 type DateConfig struct {
-	Date string `json:"date"`
+	StartDate string `json:"start"`
+	EndDate   string `json:"end"`
 }
 
-var (
-	db *sql.DB
-)
+var db *sql.DB
 
 func init() {
 	var err error
 
 	// 连接到 FlightData 数据库
-	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s",
-		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightData")
+	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s", config.SqlUser, config.SqlPass, config.SqlHost,
+		"FlightData")
 	db, err = sql.Open("sqlserver", connstr)
 	if err != nil {
 		panic(err)
@@ -54,12 +56,24 @@ func init() {
 
 // Run 启动列表爬取引擎
 func (e CtripListEngine) Run() {
-	// 日期固定为当天，用于稳定性测试
-	date := "2018-10-13"
 
-	airports, err := seeds.PullCityAirportList()
+	// 读取配置文件中的日期
+	contents, err := ioutil.ReadFile("./dateConfig.json")
 	if err != nil {
-		panic(fmt.Sprintf("seeds.PullCityAirportList error: %s", err))
+		panic(fmt.Sprintf("read dateConfig file error: %s", err))
+	}
+	var dateConfig DateConfig
+	err = json.Unmarshal(contents, &dateConfig)
+	if err != nil {
+		panic(fmt.Sprintf("parse dateConfig.json error: %s", err))
+	}
+
+	// 日期固定为当天，
+	date := dateConfig.StartDate
+
+	airports, err := store.CityAirportChanForInter()
+	if err != nil {
+		panic(fmt.Sprintf("store.CityAirportChanForInter error: %s", err))
 	}
 	out := make(chan types.ParseResult, 1000)
 
@@ -137,14 +151,14 @@ func (e CtripListEngine) Run() {
 					log.Printf("[%s:%s %s->%s] exist %d entry\n",
 						result.Request.RawParam.Date,
 						data.FlightNo,
-						result.Request.RawParam.Dep,
-						result.Request.RawParam.Arr,
+						data.DAirportCode,
+						data.AAirportCode,
 						existCount)
 				}
 			}
 		case <-timer.C:
 			fmt.Printf("\r[%s] airport: %d/%d",
-				time.Since(types.T1), CtripListFetchCount.Count(), seeds.TotalAirports)
+				time.Since(types.T1), CtripListFetchCount.Count(), store.TotalAirports)
 		}
 	}
 }
@@ -179,14 +193,21 @@ func (e CtripListEngine) CreateWorker(in chan types.Airport, date string, out ch
 			}
 			key, err := parser.GetSearchKey(airport.DepCode, airport.ArrCode, date, e.RateLimiter)
 			if err != nil {
-				fmt.Printf("%s: %s->%s\n", date, airport.DepCode, airport.ArrCode)
-				panic(err)
+				go func() {
+					// 回炉重练
+					in <- airport
+				}()
+				continue
 			}
 
 			result, err := parser.GetListResult(airport.DepCode, airport.ArrCode, date, key, e.RateLimiter)
 			if err != nil {
-				fmt.Printf("%s: %s->%s\n", date, airport.DepCode, airport.ArrCode)
-				panic(err)
+				log.Printf("%s: %s->%s get list result fail: %s", date, airport.DepCode, airport.ArrCode, err)
+				go func() {
+					// 回炉重练
+					in <- airport
+				}()
+				continue
 			}
 
 			CtripListFetchCount.Increment()

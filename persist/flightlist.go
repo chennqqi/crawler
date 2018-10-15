@@ -11,7 +11,7 @@ import (
 
 	"github.com/champkeh/crawler/config"
 	"github.com/champkeh/crawler/datasource/umetrip/parser"
-	"github.com/champkeh/crawler/seeds"
+	"github.com/champkeh/crawler/store"
 	"github.com/champkeh/crawler/types"
 	_ "github.com/denisenkom/go-mssqldb"
 )
@@ -25,7 +25,7 @@ func init() {
 
 	// 连接到 FlightData 数据库
 	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s",
-		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightData")
+		config.SqlUser, config.SqlPass, config.SqlHost, "FlightData")
 	db, err = sql.Open("sqlserver", connstr)
 	if err != nil {
 		panic(err)
@@ -55,16 +55,16 @@ func Print(result types.ParseResult, notifier types.PrintNotifier,
 			DepCode: result.Request.RawParam.Dep,
 			ArrCode: result.Request.RawParam.Arr},
 		AirportIndex: AirportIndex,
-		AirportTotal: seeds.TotalAirports,
+		AirportTotal: store.TotalAirports,
 		FlightCount:  itemCount,
 		FlightSum:    FlightSum,
-		Progress:     float32(100 * float64(AirportIndex) / float64(seeds.TotalAirports)),
+		Progress:     float32(100 * float64(AirportIndex) / float64(store.TotalAirports)),
 		QPS:          limiter.QPS(),
 	}
 	notifier.Print(data)
 
 	// task is completed?
-	if AirportIndex >= seeds.TotalAirports {
+	if AirportIndex >= store.TotalAirports {
 		return true
 	} else {
 		return false
@@ -143,16 +143,16 @@ func Save(result types.ParseResult, foreign bool, notifier types.PrintNotifier, 
 			DepCode: result.Request.RawParam.Dep,
 			ArrCode: result.Request.RawParam.Arr},
 		AirportIndex: AirportIndex,
-		AirportTotal: seeds.TotalAirports,
+		AirportTotal: store.TotalAirports,
 		FlightCount:  itemCount,
 		FlightSum:    FlightSum,
-		Progress:     float32(100 * float64(AirportIndex) / float64(seeds.TotalAirports)),
+		Progress:     float32(100 * float64(AirportIndex) / float64(store.TotalAirports)),
 		QPS:          limiter.QPS(),
 	}
 	notifier.Print(data)
 
 	// task is completed?
-	if AirportIndex >= seeds.TotalAirports {
+	if AirportIndex >= store.TotalAirports {
 		return parser.FlightListData{}, true, nil
 	} else {
 		return parser.FlightListData{}, false, nil

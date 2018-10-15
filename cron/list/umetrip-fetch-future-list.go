@@ -1,84 +1,91 @@
-package engine
+package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
 	"log"
+
 	"time"
 
-	"github.com/champkeh/crawler/common"
+	"fmt"
+
+	"os"
+
+	"github.com/champkeh/crawler/datasource/umetrip"
 	"github.com/champkeh/crawler/fetcher"
 	"github.com/champkeh/crawler/notifier"
 	"github.com/champkeh/crawler/persist"
+	"github.com/champkeh/crawler/ratelimiter"
 	"github.com/champkeh/crawler/scheduler"
-	"github.com/champkeh/crawler/seeds"
+	"github.com/champkeh/crawler/store"
 	"github.com/champkeh/crawler/types"
 )
 
-// FutureListEngine 是抓取飞常准未来航班列表的引擎
-type FutureListEngine struct {
+type UmetripListEngine struct {
 	Scheduler     types.Scheduler
 	PrintNotifier types.PrintNotifier
 	RateLimiter   types.RateLimiter
 	WorkerCount   int
 }
 
-var DefaultFutureListEngine = FutureListEngine{
+var rateLimiter = ratelimiter.NewSimpleRateLimiter(30)
+
+var DefaultUmetripListEngine = UmetripListEngine{
 	Scheduler: &scheduler.SimpleScheduler{},
 	PrintNotifier: &notifier.ConsolePrintNotifier{
-		RateLimiter: common.RateLimiter,
+		RateLimiter: rateLimiter,
 	},
-	RateLimiter: common.RateLimiter,
+	RateLimiter: rateLimiter,
 	WorkerCount: 100,
 }
 
-type DateConfig struct {
-	Date string `json:"date"`
+// cron 计划任务
+// 每周日开始更新下周的数据
+// 0 1 * * 7 umetrip-fetch-future-list
+//
+// 抓取航班列表（航旅纵横）
+// umetrip-fetch-future-list
+func main() {
+	DefaultUmetripListEngine.Run()
 }
 
-func (e FutureListEngine) Run() {
+func (e UmetripListEngine) Run() {
 
-	contents, err := ioutil.ReadFile("./config.json")
-	if err != nil {
-		panic(fmt.Sprintf("read config file error: %s", err))
-	}
-	var config DateConfig
-	err = json.Unmarshal(contents, &config)
-	if err != nil {
-		panic(fmt.Sprintf("parse config.json error: %s", err))
-	}
-
-	start, err := time.Parse("2006-01-02", config.Date)
-	if err != nil {
-		panic(err)
-	}
+	// 定义开始与结束时间
+	start := time.Now().AddDate(0, 0, 1)
+	end := start.AddDate(0, 0, 7)
 
 start:
+
+	// 判断是否已经到达结束时间
+	if start.Format("2006-01-02") == end.Format("2006-01-02") {
+		//结束
+		os.Exit(0)
+		return
+	}
+
 	// 初始化计数器
 	persist.FlightSum = 0
 	persist.AirportIndex = 0
 	types.T1 = time.Now()
 
-	// 获取新的日期
 	date := start.Format("2006-01-02")
 	// generate airport seed
-	airports, err := seeds.PullAirportList()
+	airports, err := store.AirportChanForInter()
 	if err != nil {
-		panic(fmt.Sprintf("seeds.PullAirportList error: %s", err))
+		panic(fmt.Sprintf("store.AirportChanForInter error: %s", err))
 	}
 
 	// configure scheduler's in channel
 	// this filter will generate tomorrow flight request
-	reqChannel := seeds.AirportRequestFilter(airports, date)
-	e.Scheduler.ConfigureRequestChan(reqChannel)
+	//requests := seeds.UmetripListRequestFilter(airports, date)
+	requests := umetrip.ListRequest(airports, date)
+	e.Scheduler.ConfigureRequestChan(requests)
 
-	// configure scheduler's out channel, has 100 space buffer channel
-	out := make(chan types.ParseResult, 100)
+	// configure scheduler's results channel, has 100 space buffer channel
+	results := make(chan types.ParseResult, 1000)
 
 	// create fetch worker
 	for i := 0; i < e.WorkerCount; i++ {
-		e.CreateFetchWorker(reqChannel, out)
+		e.CreateFetchWorker(requests, results)
 	}
 
 	// run the print-notifier
@@ -94,42 +101,32 @@ start:
 		// when all result have been handled, this will blocked forever.
 		// so, here use `select` to avoid this problem.
 		select {
-		case result := <-out:
-			// this is only print to console/http client,
-			// not save to database.
-			//end := persist.Print(result, e.PrintNotifier, e.RateLimiter)
-			//if end {
-			//	close(reqChannel)
-			//	fmt.Println("begin next date")
-			//	time.Sleep(5 * time.Second)
-			//	completed <- true
-			//}
-
-			// this is save to database
-			go func() {
-				data, end, err := persist.Save(result, false, e.PrintNotifier, e.RateLimiter)
-				if err != nil {
-					log.Printf("\nsave %v error: %v\n", data, err)
-				}
-				if end {
-					fmt.Println("\nbegin next date...")
-					time.Sleep(5 * time.Second)
+		case result := <-results:
+			// 保存数据库
+			data, end, err := persist.Save(result, false, e.PrintNotifier, e.RateLimiter)
+			if err != nil {
+				log.Printf("\nsave %v error: %v\n", data, err)
+			}
+			if end {
+				fmt.Println("\nbegin next date...")
+				time.Sleep(5 * time.Second)
+				go func() {
 					completed <- true
-				}
-			}()
+				}()
+			}
 
 		case <-timer.C:
-			start = start.Add(24 * time.Hour)
+			start = start.AddDate(0, 0, 1)
 			goto start
 		case <-completed:
-			start = start.Add(24 * time.Hour)
+			start = start.AddDate(0, 0, 1)
 			goto start
 		}
 	}
 }
 
-func (e FutureListEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
-	body, err := fetcher.Fetch(r.Url, e.RateLimiter)
+func (e UmetripListEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
+	body, err := fetcher.Fetch(r.Url, "", e.RateLimiter)
 	if err != nil {
 		log.Printf("\nFetcher: error fetching url %s: %v\n", r.Url, err)
 		log.Printf("Current Rate: %d\n", e.RateLimiter.Rate())
@@ -147,7 +144,7 @@ func (e FutureListEngine) fetchWorker(r types.Request) (types.ParseResult, error
 	return result, nil
 }
 
-func (e FutureListEngine) CreateFetchWorker(in chan types.Request, out chan types.ParseResult) {
+func (e UmetripListEngine) CreateFetchWorker(in chan types.Request, out chan types.ParseResult) {
 	go func() {
 		for {
 			request, ok := <-in

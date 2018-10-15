@@ -10,7 +10,7 @@ import (
 	"github.com/champkeh/crawler/notifier"
 	"github.com/champkeh/crawler/persist"
 	"github.com/champkeh/crawler/scheduler"
-	"github.com/champkeh/crawler/seeds"
+	"github.com/champkeh/crawler/store"
 	"github.com/champkeh/crawler/types"
 	"github.com/champkeh/crawler/utils"
 	"github.com/labstack/gommon/log"
@@ -55,7 +55,7 @@ func (e RealTimeEngine) Run() {
 
 	// 从实时航班列表中拉取未来2小时起飞的航班，放在 reqChannel 容器中
 	// note: 由于数据源的问题，可能会拉取到不在2小时之内的航班
-	err := seeds.PullLatestFlight(reqChannel, true)
+	err := store.PullLatestFlight(reqChannel, true)
 	if err != nil {
 		panic(err)
 	}
@@ -67,7 +67,7 @@ func (e RealTimeEngine) Run() {
 			select {
 			case <-ticker.C:
 				// 拉取最近2小时起飞的航班，放在 reqChannel 容器中
-				err := seeds.PullLatestFlight(reqChannel, false)
+				err := store.PullLatestFlight(reqChannel, false)
 				if err != nil {
 					panic(err)
 				}

@@ -38,6 +38,11 @@ type Runner interface {
 	Run()
 }
 
+type FlightInfo struct {
+	FlightNo   string
+	FlightDate string
+}
+
 type Param struct {
 	Dep  string
 	Arr  string

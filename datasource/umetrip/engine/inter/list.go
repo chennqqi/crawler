@@ -11,11 +11,12 @@ import (
 	"io/ioutil"
 
 	"github.com/champkeh/crawler/common"
+	"github.com/champkeh/crawler/datasource/umetrip"
 	"github.com/champkeh/crawler/fetcher"
 	"github.com/champkeh/crawler/notifier"
 	"github.com/champkeh/crawler/persist"
 	"github.com/champkeh/crawler/scheduler"
-	"github.com/champkeh/crawler/seeds"
+	"github.com/champkeh/crawler/store"
 	"github.com/champkeh/crawler/types"
 )
 
@@ -65,14 +66,14 @@ start:
 	// 获取新的日期
 	date := start.Format("2006-01-02")
 	// generate airport seed
-	airports, err := seeds.PullAirportList()
+	airports, err := store.AirportChanForInter()
 	if err != nil {
 		panic(fmt.Sprintf("seeds.PullAirportList error: %s", err))
 	}
 
 	// configure scheduler's in channel
 	// this filter will generate tomorrow flight request
-	reqChannel := seeds.AirportRequestFilter(airports, date)
+	reqChannel := umetrip.ListRequest(airports, date)
 	e.Scheduler.ConfigureRequestChan(reqChannel)
 
 	// configure scheduler's out channel, has 100 space buffer channel
@@ -131,7 +132,7 @@ start:
 }
 
 func (e SimpleEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
-	body, err := fetcher.Fetch(r.Url, e.RateLimiter)
+	body, err := fetcher.Fetch(r.Url, "", e.RateLimiter)
 	if err != nil {
 		log.Printf("\nFetcher: error fetching url %s: %v\n", r.Url, err)
 		log.Printf("Current Rate: %d\n", e.RateLimiter.Rate())

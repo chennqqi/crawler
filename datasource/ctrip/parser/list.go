@@ -14,6 +14,8 @@ import (
 
 	"os"
 
+	"log"
+
 	"github.com/champkeh/crawler/fetcher"
 	"github.com/champkeh/crawler/types"
 	"golang.org/x/text/encoding/simplifiedchinese"
@@ -43,7 +45,7 @@ func parseSearchKey(contents []byte, filename string) (string, error) {
 	matches := jsReCompile.FindSubmatch(contents)
 
 	if len(matches) < 2 {
-		return "", errors.New(fmt.Sprintf("parse search key error: %s not match js code", contents))
+		return "", errors.New(fmt.Sprintf("parse search key error: not match js code"))
 	}
 
 	buffer := bytes.NewBuffer(matches[1])
@@ -76,7 +78,7 @@ func parseSearchKey(contents []byte, filename string) (string, error) {
 
 	submatch := keyReCompile.FindSubmatch(cmdResult)
 	if len(submatch) < 2 {
-		return "", errors.New(fmt.Sprintf("parse search key error: %s not match key", contents))
+		return "", errors.New(fmt.Sprintf("parse search key error: %s not match key", cmdResult))
 	}
 
 	return string(submatch[1]), nil
@@ -125,6 +127,12 @@ func parseListResult(contents []byte) (types.ParseResult, error) {
 		parseResult.Items = append(parseResult.Items, item)
 	}
 	return parseResult, nil
+}
+
+func printMatch(matches [][]byte) {
+	for _, c := range matches {
+		log.Printf("\n%s\n", c)
+	}
 }
 
 type FlightListData struct {

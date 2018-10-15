@@ -18,7 +18,7 @@ func main() {
 
 	// 连接到 FlightData 数据库
 	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s",
-		config.SqlUser, config.SqlPass, config.SqlAddr, "FlightData")
+		config.SqlUser, config.SqlPass, config.SqlHost, "FlightData")
 	db, err := sql.Open("sqlserver", connstr)
 	if err != nil {
 		panic(err)
