@@ -1,14 +1,12 @@
-package main
+package foreign
 
 import (
 	"fmt"
-
 	"time"
 
 	"github.com/champkeh/crawler/fetcher"
 	"github.com/champkeh/crawler/notifier"
 	"github.com/champkeh/crawler/persist"
-	"github.com/champkeh/crawler/ratelimiter"
 	"github.com/champkeh/crawler/scheduler"
 	"github.com/champkeh/crawler/source/umetrip"
 	"github.com/champkeh/crawler/store"
@@ -16,52 +14,42 @@ import (
 	"github.com/labstack/gommon/log"
 )
 
-// FutureEngine
+// 国际航班未来1天航班详情获取引擎
 //
 // 这个引擎用来抓取未来航班的详情数据(机型、前序航班信息、...)
 // 只需要抓取未来1天的数据即可，因为只有未来1天的航班有前序航班信息
-type UmetripFutureEngine struct {
+type FutureEngine struct {
 	Scheduler     types.RequestScheduler
 	PrintNotifier types.PrintNotifier
 	RateLimiter   types.RateLimiter
 	WorkerCount   int
 }
 
-var rateLimiter = ratelimiter.NewSimpleRateLimiter(30)
-
 // DefaultFutureEngine
 //
 // FutureEngine 的默认实现
-var DefaultUmetripFutureEngine = UmetripFutureEngine{
+var DefaultFutureEngine = FutureEngine{
 	Scheduler: &scheduler.SimpleRequestScheduler{},
 	PrintNotifier: &notifier.ConsolePrintNotifier{
 		RateLimiter: rateLimiter,
 	},
+
 	// 采用全局的 rateLimiter
 	RateLimiter: rateLimiter,
 	WorkerCount: 100,
 }
 
-// cron 计划任务
-// 30 0 * * * umetrip-fetch-future-detail
-//
-// 抓取未来1天的航班详情（航旅纵横）
-// umetrip-fetch-future-detail
-func main() {
-	DefaultUmetripFutureEngine.Run()
-}
-
 // Run 运行引擎
-func (e UmetripFutureEngine) Run() {
+func (e FutureEngine) Run() {
 
 	// 清除之前的数据
-	persist.ClearDataBase(false)
+	persist.ClearDataBase(true)
 
 	// 因为要作为计划任务每天执行，所以日期使用明天
-	var date = time.Now().AddDate(0, 0, 1).Format("2006-01-02")
+	var date = time.Now().Add(24 * time.Hour).Format("2006-01-02")
 
-	// 从未来航班列表中拉取要抓取的航班列表
-	flightlist, err := store.FlightListChanAt(date, false)
+	// 从未来国际航班列表中拉取要抓取的航班列表
+	flightlist, err := store.FlightListChanAt(date, true)
 	if err != nil {
 		panic(err)
 	}
@@ -72,7 +60,7 @@ func (e UmetripFutureEngine) Run() {
 	e.Scheduler.ConfigureRequestChan(reqChannel)
 
 	// configure scheduler's out channel, has 100 space buffer channel
-	out := make(chan types.ParseResult, 1000)
+	out := make(chan types.ParseResult, 100)
 
 	// create fetch worker
 	for i := 0; i < e.WorkerCount; i++ {
@@ -97,10 +85,12 @@ func (e UmetripFutureEngine) Run() {
 			//persist.PrintDetail(result, e.PrintNotifier, e.RateLimiter)
 
 			// this is save to database
-			data, err := persist.SaveDetail(result, false, e.PrintNotifier, e.RateLimiter)
-			if err != nil {
-				log.Warnf("save %v error: %v", data, err)
-			}
+			go func() {
+				data, err := persist.SaveDetail(result, true, e.PrintNotifier, e.RateLimiter)
+				if err != nil {
+					log.Warnf("save %v error: %v", data, err)
+				}
+			}()
 
 		case <-timer.C:
 			fmt.Println("Read timeout, exit the program.")
@@ -109,11 +99,11 @@ func (e UmetripFutureEngine) Run() {
 	}
 }
 
-func (e UmetripFutureEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
+func (e FutureEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 	return fetcher.FetchRequest(r, e.RateLimiter)
 }
 
-func (e UmetripFutureEngine) CreateFetchWorker(in chan types.Request, out chan types.ParseResult) {
+func (e FutureEngine) CreateFetchWorker(in chan types.Request, out chan types.ParseResult) {
 	go func() {
 		for {
 			request := <-in

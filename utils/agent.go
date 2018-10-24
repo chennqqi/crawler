@@ -19,10 +19,10 @@ var (
 		"Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2454.101 Safari/537.36",
 		"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36",
 	}
+	agentCount = len(agent)
 )
 
 // 随机返回一个User-Agent
 func GetAgent() string {
-	agentCount := len(agent)
 	return agent[r.Intn(agentCount)]
 }

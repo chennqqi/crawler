@@ -1,10 +1,14 @@
 package main
 
+import (
+	"github.com/champkeh/crawler/realtime"
+)
+
 func main() {
 
 	// 国内航班实时抓取引擎
 	// file: realtime-engine
-	//inter.DefaultRealTimeEngine.Run()
+	realtime.DefaultRealTimeEngine.Run()
 
 	// 国内未来航班列表
 	// file: internal-list-engine
@@ -14,6 +18,5 @@ func main() {
 	// file: foreign-list-engine
 	//foreign.DefaultSimpleEngine.Run()
 
-	//engine.DefaultCtripListEngine.Run()
-
+	//cron.DefaultRealTimeEngine.Run()
 }

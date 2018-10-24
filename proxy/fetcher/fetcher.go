@@ -14,7 +14,7 @@ import (
 )
 
 // limit the fetch proxy api call rate to 1/6 cps
-var rateLimiter = time.Tick(6 * time.Second)
+var rateLimiter = time.Tick(8 * time.Second)
 
 // FetchProxy function fetch the proxy ip list from ip3366 proxy-ip provider
 // result list contains 20 records at most.

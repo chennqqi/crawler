@@ -29,8 +29,8 @@ func init() {
 	var err error
 
 	// 连接 FlightData 数据库
-	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s",
-		config.SqlUser, config.SqlPass, config.SqlHost, "FlightData")
+	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s", config.SqlUser, config.SqlPass, config.SqlHost,
+		"FlightData")
 	db, err = sql.Open("sqlserver", connstr)
 	if err != nil {
 		panic(err)
@@ -61,11 +61,12 @@ func init() {
 
 func CodeToTime(code string) (string, error) {
 
-	// 优先查找内存中的数据库
+	// 优先查找内存中的数据缓存
 	if timestr, ok := codemap[code]; ok {
 		return timestr, nil
 	}
 
+	// 再检查一下数据库
 	fmt.Printf("cache entry not found %s\n", code)
 	query := fmt.Sprintf("select time from dbo.code_to_time where code = '%s'", code)
 	var timestr string

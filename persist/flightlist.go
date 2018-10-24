@@ -10,7 +10,7 @@ import (
 	"fmt"
 
 	"github.com/champkeh/crawler/config"
-	"github.com/champkeh/crawler/datasource/umetrip/parser"
+	"github.com/champkeh/crawler/source/umetrip/parser"
 	"github.com/champkeh/crawler/store"
 	"github.com/champkeh/crawler/types"
 	_ "github.com/denisenkom/go-mssqldb"
@@ -24,8 +24,8 @@ func init() {
 	var err error
 
 	// 连接到 FlightData 数据库
-	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s",
-		config.SqlUser, config.SqlPass, config.SqlHost, "FlightData")
+	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s", config.SqlUser, config.SqlPass, config.SqlHost,
+		"FlightData")
 	db, err = sql.Open("sqlserver", connstr)
 	if err != nil {
 		panic(err)

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/champkeh/crawler/config"
-	"github.com/champkeh/crawler/datasource/umetrip/parser"
 	"github.com/champkeh/crawler/types"
 )
 
@@ -28,7 +27,6 @@ func FlightListChanAt(date string, foreign bool) (chan types.FlightInfo, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close()
 
 	// query total flight to fetch
 	tableprefix := "FutureList"
@@ -57,6 +55,7 @@ func FlightListChanAt(date string, foreign bool) (chan types.FlightInfo, error) 
 			panic(err)
 		}
 		defer rows.Close()
+		defer db.Close()
 
 		var flight types.FlightInfo
 		for rows.Next() {
@@ -75,11 +74,12 @@ func FlightListChanAt(date string, foreign bool) (chan types.FlightInfo, error) 
 	return ch, nil
 }
 
-// 从 RealTime 表中拉取数据
-func PullLatestFlight(container chan types.Request, launch bool) error {
+// 从 RealTime 表中拉取出计划起飞时间在未来2小时之内的航班信息
+// 用于 RealTime-Engine 跑实时数据
+func PullLatestFlight(container chan types.FlightInfo, launch bool) error {
 	// 打开数据库连接
-	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s",
-		config.SqlUser, config.SqlPass, config.SqlHost, "FlightData")
+	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s", config.SqlUser, config.SqlPass, config.SqlHost,
+		"FlightData")
 	db, err := sql.Open("sqlserver", connstr)
 	if err != nil {
 		return err
@@ -94,13 +94,13 @@ func PullLatestFlight(container chan types.Request, launch bool) error {
 		// 启动时，会加载当天未完成的航班
 		query = fmt.Sprintf("select distinct date,flightNo from [dbo].[RealTime] "+
 			"where depPlanTime <= '%s' "+
-			"and flightState not in ('到达','取消','备降','返航','暂无')", end)
+			"and flightState not in ('到达','取消','返航','暂无','提前取消','返航取消','备降取消','返航到达','备降到达')", end)
 	} else {
-		// 非启动时，尽加载未来2小时的航班
+		// 非启动时，仅加载未来2小时的航班
 		query = fmt.Sprintf("select distinct date,flightNo from [dbo].[RealTime] "+
 			"where depPlanTime >= '%s' "+
 			"and depPlanTime <= '%s' "+
-			"and flightState not in ('到达','取消','备降','返航','暂无')", now, end)
+			"and flightState not in ('到达','取消','返航','暂无','提前取消','返航取消','备降取消','返航到达','备降到达')", now, end)
 	}
 
 	go func() {
@@ -110,6 +110,7 @@ func PullLatestFlight(container chan types.Request, launch bool) error {
 			panic(err)
 		}
 		defer rows.Close()
+		defer db.Close()
 
 		var flight types.FlightInfo
 		for rows.Next() {
@@ -118,22 +119,63 @@ func PullLatestFlight(container chan types.Request, launch bool) error {
 				log.Printf("scan error: %v\n", err)
 				continue
 			}
-
-			// 详情页url:http://www.umetrip.com/mskyweb/fs/fc.do?flightNo=MU3924&date=2018-09-13
-			url := fmt.Sprintf("http://www.umetrip.com/mskyweb/fs/fc.do?flightNo=%s&date=%s",
-				flight.FlightNo, flight.FlightDate)
-
-			container <- types.Request{
-				Url:        url,
-				ParserFunc: parser.ParseDetail,
-				RawParam: types.Param{
-					Date: flight.FlightDate,
-					Fno:  flight.FlightNo,
-				},
-				FetchCount: 0,
-			}
+			container <- flight
 		}
 	}()
 
 	return nil
+}
+
+// 从 RealTime 表中拉取出30分钟之内没有更新的航班信息
+// 该数据会直接使用飞常准进行爬取，主要目的是避免出现长时间未进行爬取的遗漏数据
+func PullDeadFlight(container chan types.FlightInfo) error {
+	// 打开数据库连接
+	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s", config.SqlUser, config.SqlPass, config.SqlHost,
+		"FlightData")
+	db, err := sql.Open("sqlserver", connstr)
+	if err != nil {
+		return err
+	}
+
+	query := fmt.Sprintf("select top 2000 date,flightNo from (select distinct date,flightNo from [dbo].[RealTime] " +
+		"where source='umetrip' and (checkinCounter='' or boardGate='' or baggageTurntable='')) as temp")
+
+	go func() {
+		fmt.Printf("\n>>\t#%s# %q\n", time.Now().Format("2006-01-02 15:04:05"), query)
+		rows, err := db.Query(query)
+		if err != nil {
+			panic(err)
+		}
+		defer rows.Close()
+		defer db.Close()
+
+		var flight types.FlightInfo
+		for rows.Next() {
+			err := rows.Scan(&flight.FlightDate, &flight.FlightNo)
+			if err != nil {
+				log.Printf("scan error: %v\n", err)
+				continue
+			}
+			container <- flight
+		}
+	}()
+
+	return nil
+}
+
+// RemoveFlight用来把航班状态更新为“暂无”
+// 也就不用再爬取该航班了
+func RemoveFlight(flight types.FlightInfo) error {
+	// 打开数据库连接
+	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s", config.SqlUser, config.SqlPass, config.SqlHost,
+		"FlightData")
+	db, err := sql.Open("sqlserver", connstr)
+	if err != nil {
+		return err
+	}
+
+	query := fmt.Sprintf("update [dbo].[RealTime] set flightState='暂无' where flightNo='%s' and date='%s'",
+		flight.FlightNo, flight.FlightDate)
+	_, err = db.Exec(query)
+	return err
 }

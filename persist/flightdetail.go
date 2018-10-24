@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/champkeh/crawler/config"
-	"github.com/champkeh/crawler/datasource/umetrip/parser"
+	"github.com/champkeh/crawler/source/umetrip/parser"
 	"github.com/champkeh/crawler/store"
 	"github.com/champkeh/crawler/types"
 	"github.com/champkeh/crawler/utils"
@@ -73,9 +73,10 @@ func ClearDataBase(foreign bool) {
 		// 国际航班对应的表前缀
 		tableprefix = "ForeignFutureDetail"
 	}
-	tabledate := time.Now().Add(24 * time.Hour).Format("200601")
 
-	date := time.Now().Add(24 * time.Hour).Format("2006-01-02")
+	tabledate := time.Now().AddDate(0, 0, 1).Format("200601")
+
+	date := time.Now().AddDate(0, 0, 1).Format("2006-01-02")
 
 	query := fmt.Sprintf("delete from [dbo].[%s_%s] where date='%s'", tableprefix, tabledate, date)
 	_, err := db.Exec(query)

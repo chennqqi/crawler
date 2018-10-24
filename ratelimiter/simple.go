@@ -48,6 +48,18 @@ func NewSimpleRateLimiter(rate uint) types.RateLimiter {
 	}
 }
 
+func NewSimpleRateLimiterFull(fastest, slowest, current uint) types.RateLimiter {
+	if current < fastest || current > slowest {
+		panic("rate value is invalid(30~5000)")
+	}
+	return &simpleRateLimiter{
+		rate:     current,
+		Fastest:  fastest,
+		Slowest:  slowest,
+		rateTick: time.Tick(time.Duration(current) * time.Millisecond),
+	}
+}
+
 var rateLimiter = time.Tick(20 * time.Millisecond)
 
 func (r *simpleRateLimiter) Faster() {

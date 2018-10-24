@@ -4,12 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"time"
-)
 
-type Scheduler interface {
-	Submit(Request)
-	ConfigureRequestChan(chan Request)
-}
+	"golang.org/x/text/encoding"
+)
 
 type CtripScheduler interface {
 	Submit1(CtripListRequest1)
@@ -41,6 +38,8 @@ type Runner interface {
 type FlightInfo struct {
 	FlightNo   string
 	FlightDate string
+	FetchCount int
+	FailCount  int
 }
 
 type Param struct {
@@ -55,7 +54,10 @@ type Request struct {
 	RawParam   Param
 	FetchCount int64
 	Url        string
+	Referer    string
 	ParserFunc func([]byte) (ParseResult, error)
+	Source     string
+	Encoding   encoding.Encoding
 }
 
 type CtripListRequest1 struct {

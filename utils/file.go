@@ -16,7 +16,7 @@ func AppendToFile(filename string, content string) error {
 
 	file, err := os.OpenFile(filename, os.O_WRONLY, 0644)
 	if err != nil {
-		return errors.New(fmt.Sprintf("append fail: %v", err))
+		return errors.New(fmt.Sprintf("append fail: %s", err))
 	}
 	defer file.Close()
 
