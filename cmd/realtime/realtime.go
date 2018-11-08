@@ -1,11 +1,15 @@
-package realtime
+package main
 
 import (
+	"log"
 	"time"
 
 	"fmt"
 
 	"sync"
+
+	"net/http"
+	_ "net/http/pprof"
 
 	"github.com/champkeh/crawler/fetcher"
 	"github.com/champkeh/crawler/logs"
@@ -26,7 +30,7 @@ import (
 
 // RealTimeEngine
 //
-// 这个引擎用于从 航旅纵横/携程 爬取实时航班数据
+// 这个引擎用于从 航旅纵横/携程/飞常准 爬取实时航班数据
 type RealTimeEngine struct {
 	// 航联纵横 umetrip 的航班容器的调度器
 	UFlightScheduler types.FlightScheduler
@@ -64,6 +68,17 @@ var DefaultRealTimeEngine = RealTimeEngine{
 	WorkerCount: 100,
 }
 
+var T = time.Now()
+
+func main() {
+	go func() {
+		// 启动一个server来产生pprof信息，用于性能调试
+		log.Fatal(http.ListenAndServe("0.0.0.0:80", nil))
+	}()
+
+	DefaultRealTimeEngine.Run()
+}
+
 // Run
 //
 // 启动实时抓取引擎
@@ -83,30 +98,25 @@ func (e RealTimeEngine) Run() {
 
 	// 从实时航班列表中拉取未来2小时起飞的航班，放在 reqChannel 容器中
 	// note: 由于数据源的问题，可能会拉取到不在2小时之内的航班
-	err := store.PullLatestFlight(uFlightChannel, true)
-	if err != nil {
-		panic(err)
-	}
-	err = store.PullLatestFlight(cFlightChannel, true)
-	if err != nil {
-		panic(err)
-	}
+	store.PullLatestFlight(uFlightChannel, true)
+	store.PullLatestFlight(cFlightChannel, true)
+
+	store.PullDeadFlight(vFlightChannel)
 
 	go func() {
-		// 然后，每隔2小时拉取一次
+		// 然后，每隔100分钟拉取一次
 		ticker1 := time.NewTicker(100 * time.Minute)
 		for {
 			select {
 			case <-ticker1.C:
+				T = time.Now()
+
 				// 拉取最近2小时起飞的航班，放在 reqChannel 容器中
-				err = store.PullLatestFlight(uFlightChannel, false)
-				if err != nil {
-					panic(err)
-				}
-				err = store.PullLatestFlight(cFlightChannel, false)
-				if err != nil {
-					panic(err)
-				}
+				store.PullLatestFlight(uFlightChannel, false)
+				store.PullLatestFlight(cFlightChannel, false)
+
+				// 拉取不活跃的数据，直接用飞常准查询
+				store.PullDeadFlight(vFlightChannel)
 			}
 		}
 	}()
@@ -133,7 +143,7 @@ func (e RealTimeEngine) Run() {
 	go e.URateLimiter.Run()
 	go e.CRateLimiter.Run()
 	go e.VRateLimiter.Run()
-	go e.ProxyPool.Start()
+	go e.ProxyPool.Start(3000, "proxyip_verify", logs.SaveInfoLogFile)
 
 	counter := 0
 	ticker2 := time.NewTicker(1 * time.Second)
@@ -145,8 +155,9 @@ func (e RealTimeEngine) Run() {
 			counter %= 10000
 
 		case <-ticker2.C:
-			fmt.Printf("\r[RealTime %d  UCh:%d  CCh:%d  VCh:%d Proxy:%d] [UR:%.2f  CR:%.2f  VR:%.2f]",
-				counter, len(uFlightChannel), len(cFlightChannel), len(vFlightChannel), e.ProxyPool.Count(),
+			fmt.Printf("\r[%s %d  UCh:%d  CCh:%d  VCh:%d Proxy:%d] [UR:%.2f  CR:%.2f  VR:%.2f]",
+				time.Since(T), counter, len(uFlightChannel), len(cFlightChannel), len(vFlightChannel),
+				e.ProxyPool.Count(),
 				e.URateLimiter.QPS(), e.CRateLimiter.QPS(), e.VRateLimiter.QPS())
 		}
 	}

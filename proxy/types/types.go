@@ -2,7 +2,6 @@ package types
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 )
@@ -20,11 +19,11 @@ func (ip ProxyIP) String() string {
 func Parse(s string) ProxyIP {
 	split := strings.Split(s, ":")
 	if len(split) != 2 {
-		log.Panic("proxyip parse err")
+		panic(fmt.Sprintf("proxyip %s parse error: split != 2", s))
 	}
 	port, err := strconv.Atoi(split[1])
 	if err != nil {
-		log.Panic("proxyip parse err")
+		panic(fmt.Sprintf("proxyip %s parse error: %s", s, err))
 	}
 	return ProxyIP{
 		IP:   split[0],

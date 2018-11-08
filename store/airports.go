@@ -37,7 +37,7 @@ func AirportChanForInter() (chan types.Airport, error) {
 
 	// this channel is non-buffer channel, which means that send to this
 	// channel will be blocked if it has already value in it.
-	ch := make(chan types.Airport)
+	ch := make(chan types.Airport, 3000)
 
 	go func() {
 		rows, err := db.Query(`select distinct a.Code,b.Code from dbo.Inf_AirportSTD a

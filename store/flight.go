@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/champkeh/crawler/config"
+	"github.com/champkeh/crawler/logs"
 	"github.com/champkeh/crawler/types"
+	"github.com/champkeh/crawler/utils"
 )
 
 var (
@@ -76,13 +78,13 @@ func FlightListChanAt(date string, foreign bool) (chan types.FlightInfo, error) 
 
 // 从 RealTime 表中拉取出计划起飞时间在未来2小时之内的航班信息
 // 用于 RealTime-Engine 跑实时数据
-func PullLatestFlight(container chan types.FlightInfo, launch bool) error {
+func PullLatestFlight(container chan types.FlightInfo, launch bool) {
 	// 打开数据库连接
 	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s", config.SqlUser, config.SqlPass, config.SqlHost,
 		"FlightData")
 	db, err := sql.Open("sqlserver", connstr)
 	if err != nil {
-		return err
+		panic(err)
 	}
 
 	// 计算未来2小时的时间边界范围
@@ -104,7 +106,6 @@ func PullLatestFlight(container chan types.FlightInfo, launch bool) error {
 	}
 
 	go func() {
-		fmt.Printf("\n>>\t#%s# %q\n", time.Now().Format("2006-01-02 15:04:05"), query)
 		rows, err := db.Query(query)
 		if err != nil {
 			panic(err)
@@ -113,35 +114,42 @@ func PullLatestFlight(container chan types.FlightInfo, launch bool) error {
 		defer db.Close()
 
 		var flight types.FlightInfo
+		count := 0
 		for rows.Next() {
 			err := rows.Scan(&flight.FlightDate, &flight.FlightNo)
 			if err != nil {
-				log.Printf("scan error: %v\n", err)
+				utils.AppendToFile(logs.InfoLogFile,
+					fmt.Sprintf("[pull %s]:scan latest flight error:%q\n",
+						time.Now().Format("2006-01-02 15:04:05"), err))
 				continue
 			}
 			container <- flight
+			count++
 		}
+		utils.AppendToFile(logs.InfoLogFile,
+			fmt.Sprintf("[pull %s]:pull latest flight from RealTime table %d count(%s)\n",
+				time.Now().Format("2006-01-02 15:04:05"), count, query))
 	}()
-
-	return nil
 }
 
 // 从 RealTime 表中拉取出30分钟之内没有更新的航班信息
 // 该数据会直接使用飞常准进行爬取，主要目的是避免出现长时间未进行爬取的遗漏数据
-func PullDeadFlight(container chan types.FlightInfo) error {
+func PullDeadFlight(container chan types.FlightInfo) {
 	// 打开数据库连接
 	connstr := fmt.Sprintf("sqlserver://%s:%s@%s?database=%s", config.SqlUser, config.SqlPass, config.SqlHost,
 		"FlightData")
 	db, err := sql.Open("sqlserver", connstr)
 	if err != nil {
-		return err
+		panic(err)
 	}
 
-	query := fmt.Sprintf("select top 2000 date,flightNo from (select distinct date,flightNo from [dbo].[RealTime] " +
-		"where source='umetrip' and (checkinCounter='' or boardGate='' or baggageTurntable='')) as temp")
+	query := fmt.Sprintf("select distinct date,flightNo from [dbo].[RealTime] "+
+		"where updateAt<='%s' and depPlanTime<='%s' and date='%s' and flightState not in ('到达','取消','返航','暂无','提前取消','返航取消','备降取消','返航到达','备降到达')",
+		time.Now().Add(-15*time.Minute).Format("2006-01-02 15:04"),
+		time.Now().Add(90*time.Minute).Format("2006-01-02 15:04"),
+		time.Now().Format("2006-01-02"))
 
 	go func() {
-		fmt.Printf("\n>>\t#%s# %q\n", time.Now().Format("2006-01-02 15:04:05"), query)
 		rows, err := db.Query(query)
 		if err != nil {
 			panic(err)
@@ -150,17 +158,22 @@ func PullDeadFlight(container chan types.FlightInfo) error {
 		defer db.Close()
 
 		var flight types.FlightInfo
+		count := 0
 		for rows.Next() {
 			err := rows.Scan(&flight.FlightDate, &flight.FlightNo)
 			if err != nil {
-				log.Printf("scan error: %v\n", err)
+				utils.AppendToFile(logs.InfoLogFile,
+					fmt.Sprintf("[pull %s]:scan dead flight error:%q\n",
+						time.Now().Format("2006-01-02 15:04:05"), err))
 				continue
 			}
 			container <- flight
+			count++
 		}
+		utils.AppendToFile(logs.InfoLogFile,
+			fmt.Sprintf("[pull %s]:pull dead flight from RealTime table %d count(%s)\n",
+				time.Now().Format("2006-01-02 15:04:05"), count, query))
 	}()
-
-	return nil
 }
 
 // RemoveFlight用来把航班状态更新为“暂无”

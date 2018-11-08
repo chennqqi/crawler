@@ -10,7 +10,6 @@ import (
 	"os"
 
 	"github.com/champkeh/crawler/fetcher"
-	"github.com/champkeh/crawler/notifier"
 	"github.com/champkeh/crawler/persist"
 	"github.com/champkeh/crawler/ratelimiter"
 	"github.com/champkeh/crawler/scheduler"
@@ -19,22 +18,16 @@ import (
 	"github.com/champkeh/crawler/types"
 )
 
-type ListEngine struct {
-	Scheduler     types.RequestScheduler
-	PrintNotifier types.PrintNotifier
-	RateLimiter   types.RateLimiter
-	WorkerCount   int
+type UmetripListEngine struct {
+	RequestScheduler types.RequestScheduler
+	RateLimiter      types.RateLimiter
+	WorkerCount      int
 }
 
-var rateLimiter = ratelimiter.NewSimpleRateLimiter(30)
-
-var DefaultUmetripListEngine = ListEngine{
-	Scheduler: &scheduler.SimpleRequestScheduler{},
-	PrintNotifier: &notifier.ConsolePrintNotifier{
-		RateLimiter: rateLimiter,
-	},
-	RateLimiter: rateLimiter,
-	WorkerCount: 100,
+var DefaultUmetripListEngine = UmetripListEngine{
+	RequestScheduler: &scheduler.SimpleRequestScheduler{},
+	RateLimiter:      ratelimiter.NewSimpleRateLimiterFull(30, 5000, 50),
+	WorkerCount:      100,
 }
 
 // cron 计划任务
@@ -47,7 +40,7 @@ func main() {
 	DefaultUmetripListEngine.Run()
 }
 
-func (e ListEngine) Run() {
+func (e UmetripListEngine) Run() {
 
 	// 定义开始与结束时间
 	start := time.Now().AddDate(0, 0, 1)
@@ -76,20 +69,17 @@ start:
 
 	// configure scheduler's in channel
 	// this filter will generate tomorrow flight request
-	//requests := seeds.UmetripListRequestFilter(airports, date)
 	requests := umetrip.ListRequestPipe(airports, date)
-	e.Scheduler.ConfigureRequestChan(requests)
+	e.RequestScheduler.ConfigureRequestChan(requests)
 
 	// configure scheduler's results channel, has 100 space buffer channel
 	results := make(chan types.ParseResult, 1000)
 
 	// create fetch worker
 	for i := 0; i < e.WorkerCount; i++ {
-		e.CreateFetchWorker(requests, results)
+		e.CreateWorker(requests, results)
 	}
 
-	// run the print-notifier
-	go e.PrintNotifier.Run()
 	// run the rate-limiter
 	go e.RateLimiter.Run()
 
@@ -125,11 +115,11 @@ start:
 	}
 }
 
-func (e ListEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
+func (e UmetripListEngine) fetchWorker(r types.Request) (types.ParseResult, error) {
 	return fetcher.FetchRequest(r, e.RateLimiter)
 }
 
-func (e ListEngine) CreateFetchWorker(in chan types.Request, out chan types.ParseResult) {
+func (e UmetripListEngine) CreateWorker(in chan types.Request, out chan types.ParseResult) {
 	go func() {
 		for {
 			request, ok := <-in

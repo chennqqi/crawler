@@ -44,7 +44,7 @@ func main() {
 		"depFlow,arrFlow,"+
 		"checkinCounter,boardGate,baggageTurntable "+
 		"from [dbo].[RealTime] "+
-		"where date<='%s' and flightState in ('到达','取消','备降','返航','返航取消','提前取消','返航到达','备降到达','暂无')", date)
+		"where date<='%s' and flightState in ('到达','取消','返航','返航取消','备降取消','提前取消','返航到达','备降到达','暂无')", date)
 	rows, err := db.Query(query)
 	if err != nil {
 		panic(err)

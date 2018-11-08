@@ -85,7 +85,7 @@ func FetchWithProxy(url string, referer string, encoding encoding.Encoding, prox
 		Transport: &http.Transport{
 			Proxy: http.ProxyURL(proxy),
 		},
-		Timeout: time.Duration(30 * time.Second),
+		Timeout: time.Duration(60 * time.Second),
 	}
 
 	resp, err := client.Do(request)

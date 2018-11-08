@@ -9,3 +9,8 @@ type FlightScheduler interface {
 	Submit(FlightInfo)
 	ConfigureFlightChan(chan FlightInfo)
 }
+
+type AirportScheduler interface {
+	Submit(Airport)
+	ConfigureAirportChan(chan Airport)
+}

@@ -15,30 +15,32 @@ import (
 // so here use json package instead of regexp package.
 
 type FlightDetailData struct {
-	BaggageID             string //行李转盘
-	BoardGate             string //登机口
-	BoardState            string //登机状态
-	CheckinTable          string //值机柜台
-	Bridge                string `json:"bridge"` //等级方式：靠廊桥
-	DepWeather            string //起飞地天气
-	ArrWeather            string //将落地天气
-	FlightDep             string //起飞城市
-	FlightDepAirport      string //起飞机场
-	FlightDepcode         string //起飞机场三字码
-	FlightDeptimeDate     string //实际起飞时间
-	FlightDeptimePlanDate string //计划起飞时间
-	FlightArr             string //降落城市
-	FlightArrAirport      string //降落机场
-	FlightArrcode         string //降落机场三字码
-	FlightArrtimeDate     string //实际到达时间
-	FlightArrtimePlanDate string //计划到达时间
-	FlightCompany         string //航空公司
-	FlightNo              string //航班号
-	FlightDate            string //航班日期
-	FlightState           string //航班状态
-	FlightHTerminal       string //航站楼
-	FlightTerminal        string //航站楼
-	Generic               string `json:"generic"`
+	BaggageID              string //行李转盘
+	BoardGate              string //登机口
+	BoardState             string //登机状态
+	CheckinTable           string //值机柜台
+	Bridge                 string `json:"bridge"` //等级方式：靠廊桥
+	DepWeather             string //起飞地天气
+	ArrWeather             string //将落地天气
+	FlightDep              string //起飞城市
+	FlightDepAirport       string //起飞机场
+	FlightDepcode          string //起飞机场三字码
+	FlightDeptimeDate      string //实际起飞时间
+	FlightDeptimePlanDate  string //计划起飞时间
+	FlightDeptimeReadyDate string
+	FlightArr              string //降落城市
+	FlightArrAirport       string //降落机场
+	FlightArrcode          string //降落机场三字码
+	FlightArrtimeDate      string //实际到达时间
+	FlightArrtimePlanDate  string //计划到达时间
+	FlightArrtimeReadyDate string
+	FlightCompany          string //航空公司
+	FlightNo               string //航班号
+	FlightDate             string //航班日期
+	FlightState            string //航班状态
+	FlightHTerminal        string //航站楼
+	FlightTerminal         string //航站楼
+	Generic                string `json:"generic"`
 }
 
 type LimitError struct {

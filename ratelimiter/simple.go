@@ -107,8 +107,6 @@ func (r *simpleRateLimiter) Run() {
 		select {
 		case <-rate:
 			r.Faster()
-		default:
-
 		}
 	}
 }
